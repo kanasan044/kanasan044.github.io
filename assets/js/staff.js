@@ -442,23 +442,27 @@
   ].join("\n") }));
 
   /* ---------- start ---------- */
+  // The header button shows who is signed in (tap → log out), or goes back to 「スタッフログイン」.
+  function report(signedIn) {
+    if (SITE.setLogin) SITE.setLogin(signedIn ? { signedIn: true, label: me.discord || me.name, onLogout: logout } : null);
+  }
   (async function () {
     if (!API) return;
     var invite = (location.search.match(/[?&]invite=([^&]+)/) || [])[1];
-    if (invite && !/yo_(session|error)=/.test(location.hash)) { showInvite(decodeURIComponent(invite)); return; }
+    if (invite && !/yo_(session|error)=/.test(location.hash)) { report(false); showInvite(decodeURIComponent(invite)); return; }
     var result = takeLoginResult();
-    if (result && result.error === "need_mfa") { showNotice(L.need_mfa); return; }
-    if (result && result.error) { toast(L[result.error] ? t(result.error) : errText({ message: result.error }), false, true); return; }
+    if (result && result.error === "need_mfa") { report(false); showNotice(L.need_mfa); return; }
+    if (result && result.error) { report(false); toast(L[result.error] ? t(result.error) : errText({ message: result.error }), false, true); return; }
     try { token = result ? result.session : localStorage.getItem(SESSION_KEY); } catch (e) { token = null; }
-    if (!token) return;
+    if (!token) { report(false); return; }
     try {
       me = await call("GET", "/me");
+      report(true);
       if (me.role === "admin") {
         // The admin gets the full editor (its own toolbar); hand over this session.
         window.YORIMICHI_SESSION = token;
         SITE.loadScript("assets/js/schedule-editor.js", function () { SITE.loadScript("assets/js/admin.js"); });
         if (result) toast(t("welcome") + "：" + (me.discord || me.name));
-        var lb = document.getElementById("staff-login"); if (lb) lb.hidden = true;
         return;
       }
       if (me.role === "applicant") {
@@ -470,10 +474,10 @@
         if (me.role === "teacher") { SITE.loadScript("assets/js/schedule-editor.js"); apply((await call("GET", "/schedule")).schedule); }
       }
     } catch (e) {
+      me = null; report(false);
       if (e.status === 401) { forget(); toast(t("expired"), false, true); }
       else if (e.status === 403 && e.body && e.body.error === "not_member") { forget(); showNotMember(e.body); }
       else toast(t("failed") + "：" + errText(e), false, true);
     }
-    var login = document.getElementById("staff-login"); if (login) login.hidden = !!me;
   })();
 })();

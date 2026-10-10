@@ -73,7 +73,10 @@
       "guide.t3.title": "教室と授業", "guide.t3.body": "教室の戸をクリックすると出入りできます。授業中は先生が鍵を掛けるので、外からは入れません。",
       "guide.t4.title": "声のエリア", "guide.t4.body": "個室や教室の中の声は外に聞こえず、外の声も中には届きません。",
       "faq.title": "よくある質問",
-      "footer.tag": "日本と韓国が出会う、VRChat の交流ラウンジ。", "footer.pages": "ページ", "footer.links": "リンク", "footer.staff": "スタッフ専用", "footer.login": "スタッフログイン",
+      "footer.tag": "日本と韓国が出会う、VRChat の交流ラウンジ。", "footer.pages": "ページ", "footer.links": "リンク", "footer.staff": "スタッフ専用",
+      "login.btn": "スタッフログイン", "login.in": "ログイン中", "login.checking": "確認中…",
+      "login.confirm": "このボタンは YORIMICHI の先生・運営スタッフ用です。\nDiscord でログインしますか？",
+      "login.logout": "ログアウトしますか？",
       "updated": "最終更新",
       "dow": ["日", "月", "火", "水", "木", "金", "土"]
     },
@@ -138,7 +141,10 @@
       "guide.t3.title": "교실과 수업", "guide.t3.body": "교실 문을 클릭하면 드나들 수 있어요. 수업 중에는 선생님이 문을 잠그기 때문에 밖에서는 들어갈 수 없어요.",
       "guide.t4.title": "목소리 구역", "guide.t4.body": "개인실과 교실 안의 목소리는 밖으로 들리지 않고, 밖의 소리도 안으로 들어오지 않아요.",
       "faq.title": "자주 묻는 질문",
-      "footer.tag": "일본과 한국이 만나는 VRChat 교류 라운지.", "footer.pages": "페이지", "footer.links": "링크", "footer.staff": "스태프 전용", "footer.login": "스태프 로그인",
+      "footer.tag": "일본과 한국이 만나는 VRChat 교류 라운지.", "footer.pages": "페이지", "footer.links": "링크", "footer.staff": "스태프 전용",
+      "login.btn": "스태프 로그인", "login.in": "로그인 중", "login.checking": "확인 중…",
+      "login.confirm": "이 버튼은 YORIMICHI 선생님·운영 스태프 전용입니다.\nDiscord로 로그인할까요?",
+      "login.logout": "로그아웃할까요?",
       "updated": "최종 업데이트",
       "dow": ["일", "월", "화", "수", "목", "금", "토"]
     }
@@ -193,6 +199,7 @@
     return /^https?:\/\//i.test(u) || /^[\w\-./]+\.(jpe?g|png|webp|gif|avif|svg)$/i.test(u) || /^data:image\/(jpeg|png|webp|gif);base64,/i.test(u) ? u : "";
   }
   var ARROW = '<svg viewBox="0 0 20 20" aria-hidden="true"><path d="M7 4l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  var LOCK = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 11V8a5 5 0 0 1 10 0v3M5 11h14v10H5z" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"/></svg>';
   var MARK = '<svg class="brand__mark" viewBox="0 0 32 32" aria-hidden="true"><circle cx="12" cy="16" r="9" fill="var(--sakura)" opacity=".9"/><circle cx="20" cy="16" r="9" fill="var(--accent)" opacity=".85" style="mix-blend-mode:multiply"/></svg>';
   var PAGES = [["home", "index.html"], ["schedule", "schedule.html"], ["team", "team.html"], ["recruit", "recruit.html"], ["guide", "guide.html"]];
 
@@ -210,7 +217,9 @@
       '<div class="lang" role="group" aria-label="Language / 언어">' +
       '<svg class="lang__icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M3 12h18M12 3c2.5 2.6 3.7 5.6 3.7 9s-1.2 6.4-3.7 9c-2.5-2.6-3.7-5.6-3.7-9S9.5 5.6 12 3z" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>' +
       '<button type="button" data-lang="ja" lang="ja">日本語</button><button type="button" data-lang="ko" lang="ko">한국어</button></div>' +
-      '<a class="btn btn--dark btn--sm hide-md" data-link="group_url" href="#" data-i18n="cta.group"></a>' +
+      '<a class="btn btn--ghost btn--sm hide-md" data-link="group_url" href="#" data-i18n="cta.group"></a>' +
+      // Staff login (teachers / staff / admin, Discord). Shows "● name" while signed in; tap it to log out.
+      '<button type="button" class="btn btn--dark btn--sm login-btn" id="staff-login">' + LOCK + '<span class="login-btn__text"></span></button>' +
       '<button class="menu-btn" type="button" aria-expanded="false" aria-controls="nav"><span></span><span></span></button>' +
       "</div></div></header>";
 
@@ -226,7 +235,6 @@
       "</div></div>" +
       '<div class="container footer__bottom"><small>© <span id="year">2026</span> YORIMICHI</small>' +
       '<a class="footer__staff" data-link="staff_page_url" href="#"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 11V8a5 5 0 0 1 10 0v3M5 11h14v10H5z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg><span data-i18n="footer.staff"></span></a>' +
-      '<button type="button" class="footer__login" id="staff-login" data-i18n="footer.login" hidden></button>' +
       '<small class="muted" id="updated"></small></div></footer>';
   }
 
@@ -235,6 +243,22 @@
   var DEFAULT_STAFF_API = "https://yorimichi-api.soluto484.workers.dev";
   function staffApi() { return String(S.staff_api || DEFAULT_STAFF_API).trim().replace(/\/+$/, ""); }
   function hasSession() { try { return !!localStorage.getItem(SESSION_KEY); } catch (e) { return false; } }
+  // The header button: 「スタッフログイン」, or 「● name」 once staff.js / admin.js has confirmed who is signed in.
+  // While a saved login is being checked it says 「確認中…」; if the check fails it goes back to 「スタッフログイン」.
+  var loginState = { settled: false, signedIn: false, label: "", onLogout: null };
+  function renderLogin() {
+    var b = el("staff-login"); if (!b) return;
+    var text = b.querySelector(".login-btn__text");
+    b.hidden = !staffApi();
+    b.classList.toggle("is-in", loginState.signedIn);
+    if (loginState.signedIn) { text.textContent = "● " + (loginState.label || t("login.in")); b.title = t("login.logout"); }
+    else { text.textContent = hasSession() && !loginState.settled ? t("login.checking") : t("login.btn"); b.title = ""; }
+    b.setAttribute("aria-label", text.textContent);
+  }
+  function setLogin(state) {
+    loginState = { settled: true, signedIn: !!(state && state.signedIn), label: (state && state.label) || "", onLogout: state && state.onLogout };
+    renderLogin();
+  }
   function startStaffLogin(invite) {
     var api = staffApi(); if (!api) return;
     var n = Array.from(crypto.getRandomValues(new Uint8Array(12)), function (b) { return b.toString(16).padStart(2, "0"); }).join("");
@@ -265,8 +289,7 @@
       if (url) { a.href = url; a.target = "_blank"; a.rel = "noopener"; a.hidden = false; }
       else { a.removeAttribute("target"); a.hidden = !isBtn; }
     });
-    var login = el("staff-login");
-    if (login) login.hidden = !staffApi() || hasSession() || !/^https?:$/.test(location.protocol);
+    renderLogin();
     var linkCol = el("footer-links");
     if (linkCol) linkCol.hidden = !linkCol.querySelector("a:not([hidden])");
     document.querySelectorAll("[data-img]").forEach(function (img) {
@@ -417,6 +440,7 @@
     rerender: renderAll,
     staffApi: staffApi,
     startLogin: startStaffLogin,
+    setLogin: setLogin,
     tags: TAGS,
     loadScript: function (src, done) { loadScript(src + "?v=" + BUST, done); }
   };
@@ -458,7 +482,10 @@
   // login). staff.js asks the staff API who it is and loads the admin editor for the admin.
   if (hasSession() || /[#&]yo_(session|error)=/.test(location.hash) || /[?&]invite=/.test(location.search)) loadScript("assets/js/staff.js?v=" + BUST);
   else if (/[?&]admin\b/.test(location.search)) startStaffLogin();   // old bookmark: go straight to the login
-  el("staff-login").addEventListener("click", function () { startStaffLogin(); });
+  el("staff-login").addEventListener("click", function () {
+    if (loginState.signedIn) { if (loginState.onLogout && confirm(t("login.logout"))) loginState.onLogout(); return; }
+    if (confirm(t("login.confirm"))) startStaffLogin();
+  });
   }
 
   /* ---------- load data, then start ---------- */
