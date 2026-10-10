@@ -26,6 +26,7 @@
     notMember: ["この Discord アカウントは、まだ名簿に登録されていません", "이 Discord 계정은 아직 명단에 등록되어 있지 않습니다"],
     notMemberHelp: ["運営（かなさん）から届く「招待リンク」を開いて登録してください。", "운영자(카나상)에게 받은 '초대 링크'를 열어 등록해 주세요."],
     expired: ["ログインの期限が切れました。もう一度ログインしてください。", "로그인이 만료되었습니다. 다시 로그인해 주세요."],
+    expiredKeep: ["しばらく使われていなかったので、ログインの期限が切れました。保存していない変更があります。右上の「スタッフログイン」でもう一度ログインしてから保存してください。", "한동안 사용하지 않아 로그인이 만료되었습니다. 저장하지 않은 변경 사항이 있습니다. 오른쪽 위 '스태프 로그인'으로 다시 로그인한 뒤 저장해 주세요."],
     cancelled: ["ログインをやめました", "로그인을 취소했습니다"],
     invite_expired: ["この招待リンクは期限切れか、使えなくなっています。かなさんに新しいリンクをもらってください。", "이 초대 링크는 만료되었거나 사용할 수 없습니다. 운영자(카나상)에게 새 링크를 받아 주세요."],
     invite_used: ["この招待リンクはもう使われています。かなさんに新しいリンクをもらってください。", "이 초대 링크는 이미 사용되었습니다. 운영자(카나상)에게 새 링크를 받아 주세요."],
@@ -88,12 +89,21 @@
     return n;
   }
 
+  // Each answer brings a renewed login (X-Session): keep it, so 3 hours of not using the site signs you out.
+  function keepSession(r) {
+    var s = r && r.headers && r.headers.get ? r.headers.get("X-Session") : null;
+    if (!s) return;
+    token = s; window.YORIMICHI_SESSION = s;
+    try { localStorage.setItem(SESSION_KEY, s); } catch (e) { /* private window */ }
+  }
+  window.YORIMICHI_KEEP_SESSION = keepSession;   // admin.js uses the same
   async function call(method, path, body) {
     var r = await fetch(API + path, {
       method: method, cache: "no-store",
       headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" },
       body: body ? JSON.stringify(body) : undefined
     });
+    keepSession(r);
     var j = {}; try { j = await r.json(); } catch (e) { /* no body */ }
     if (!r.ok) { var err = new Error(j.error || ("HTTP " + r.status)); err.status = r.status; err.body = j; throw err; }
     return j;
@@ -444,6 +454,25 @@
   ].join("\n") }));
 
   /* ---------- start ---------- */
+  // Left open without use: when the login's time runs out, sign out here too (keep the page if there are unsaved edits).
+  function sessionExp(tok) {
+    try { var p = String(tok).split(".")[0].replace(/-/g, "+").replace(/_/g, "/"); return JSON.parse(decodeURIComponent(escape(atob(p + "===".slice((p.length + 3) % 4))))).exp || 0; }
+    catch (e) { return 0; }
+  }
+  var expiredShown = false;
+  function checkExpiry() {
+    var cur = window.YORIMICHI_SESSION || token;
+    if (!cur || !me || Date.now() < sessionExp(cur)) return;
+    forget(); window.YORIMICHI_SESSION = null;
+    if (window.YORIMICHI_DIRTY && window.YORIMICHI_DIRTY()) {
+      if (!expiredShown) { expiredShown = true; toast(t("expiredKeep"), true, true); }
+      return;
+    }
+    location.href = location.pathname + location.search;
+  }
+  setInterval(checkExpiry, 60000);
+  document.addEventListener("visibilitychange", function () { if (!document.hidden) checkExpiry(); });
+
   // The header button shows who is signed in (tap → log out), or goes back to 「スタッフログイン」.
   function report(signedIn) {
     if (SITE.setLogin) SITE.setLogin(signedIn ? { signedIn: true, label: me.discord || me.name, onLogout: logout } : null);

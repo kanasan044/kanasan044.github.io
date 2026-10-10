@@ -39,15 +39,20 @@
   /* ---------- staff API (saves to GitHub for us) ---------- */
   var ERRORS = { github_409: "ほかの画面で同時に保存されました。もう一度「保存して公開」を押してください",
     not_signed_in: "ログインの期限が切れました。もう一度ログインしてください", admins_only: "このアカウントには編集の権限がありません",
-    founders_only: "この変更は創設者（かなさん）だけができます" };
+    founders_only: "この変更は創設者（かなさん）だけができます", owner_only: "「創設者」に関わる変更は、かなさんだけができます" };
   async function api(path, opts) {
     opts = opts || {};
+    if (window.YORIMICHI_SESSION) token = window.YORIMICHI_SESSION;   // renewed by staff.js / by the last answer
     var r = await fetch(API + path, {
       method: opts.method || "GET",
       headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" },
       body: opts.body ? JSON.stringify(opts.body) : undefined,
       cache: "no-store"
     });
+    // Keep the renewed login (3 hours of not using the site signs you out).
+    if (window.YORIMICHI_KEEP_SESSION) window.YORIMICHI_KEEP_SESSION(r);
+    else { var s = r.headers && r.headers.get ? r.headers.get("X-Session") : null; if (s) { token = s; try { localStorage.setItem(SESSION_KEY, s); } catch (e) { /* ignore */ } } }
+    if (window.YORIMICHI_SESSION) token = window.YORIMICHI_SESSION;
     var j = {}; try { j = await r.json(); } catch (e) { /* no body */ }
     if (!r.ok) { var err = new Error(ERRORS[j.error] || j.error || ("HTTP " + r.status)); err.status = r.status; throw err; }
     return j;
@@ -75,11 +80,12 @@
   // 創設者 ("admin") gets everything; 運営スタッフ ("staff") gets the site content only — no 名簿 / 役職 / 招待 / リンク /
   // ドメイン / 全員ログアウト (the staff API refuses those for staff too).
   var ROLE = "admin";
+  var OWNER = false;   // the owner (かなさん): the only one who may give / take 創設者
   function founder() { return ROLE === "admin"; }
   async function verify() {
     var me = await api("/me");
     if (me.role !== "admin" && me.role !== "staff") { var err = new Error(ERRORS.admins_only); err.status = 403; throw err; }
-    ROLE = me.role;
+    ROLE = me.role; OWNER = !!me.owner;
     who = me.discord || ""; whoUser = me.username || "";   // the Discord account actually signed in, for the toolbar
     return me.name;
   }
@@ -96,6 +102,7 @@
   function peopleDirty() { return people && JSON.stringify(people) !== peopleSaved; }
   function keysDirty() { return keys && JSON.stringify(keys) !== keysSaved; }
   function dirty() { return draft && (JSON.stringify(draft) !== saved || Object.keys(pending).length > 0 || peopleDirty() || keysDirty()); }
+  window.YORIMICHI_DIRTY = function () { return !!dirty(); };   // staff.js: don't reload over unsaved edits when the login runs out
   function newId() { return "a" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
   function view() {
     // The page shows the draft; pictures that were just uploaded are shown from memory until Pages publishes them.
@@ -639,8 +646,11 @@
   // Role buttons: moving someone between the lists changes what they can do on the site and in the world.
   function roleField(label, item) {
     var cur = roleOf(item);
+    // Only the owner (かなさん) may give or take 創設者 — also checked by the staff API.
+    var locked = function (role) { return !OWNER && (role === "founder" || cur === "founder"); };
     var pick = function (role) {
       if (role === cur) return;
+      if (locked(role)) { toast("「創設者」の付け外しは、かなさんだけができます", false, true); return; }
       var name = String(item.name || "").trim() || "この人";
       if (role === "founder" && !confirm(name + " さんを「創設者」にしますか？\n創設者は、名簿・役職・招待・リンクなど、すべてを変えられるようになります。")) return;
       if (cur === "founder" && name === login && !confirm("自分の「創設者」を外しますか？（Discord アプリの持ち主のかなさんは、外しても管理者のままです）")) return;
@@ -652,9 +662,11 @@
     };
     var opts = [["founder", "創設者"], ["staff", "運営スタッフ"], ["teacher", "先生"]];
     return $("div", { class: "yo-field" }, [$("span", { text: label }), $("div", { class: "yo-tags" }, opts.map(function (o) {
-      return $("button", { type: "button", class: "yo-tag yo-role yo-role--" + o[0] + (cur === o[0] ? " is-on" : ""), text: (cur === o[0] ? "✓ " : "") + o[1],
-        on: { click: function () { pick(o[0]); } } });
-    }))]);
+      var attrs = { type: "button", class: "yo-tag yo-role yo-role--" + o[0] + (cur === o[0] ? " is-on" : ""), text: (cur === o[0] ? "✓ " : "") + o[1],
+        on: { click: function () { pick(o[0]); } } };
+      if (cur !== o[0] && locked(o[0])) { attrs.disabled = "disabled"; attrs.title = "「創設者」の付け外しは、かなさんだけができます"; }
+      return $("button", attrs);
+    })), !OWNER && cur === "founder" ? $("span", { class: "yo-muted", text: "創設者の役職は、かなさんだけが変えられます。" }) : null]);
   }
   function openPanel(tab) {
     if (panel) panel.remove();
@@ -765,7 +777,7 @@
     ".yo-tags{display:flex;flex-wrap:wrap;gap:6px}",
     ".yo-tag{padding:6px 11px;border:1px solid var(--line);border-radius:999px;background:#fff;font:inherit;font-size:12.5px;font-weight:700;color:var(--ink);cursor:pointer}",
     ".yo-tag:hover{border-color:var(--accent)}.yo-tag.is-on{background:var(--accent);border-color:var(--accent);color:#fff}",
-    ".yo-role{font-size:13.5px;padding:8px 14px}",
+    ".yo-role{font-size:13.5px;padding:8px 14px}.yo-role:disabled{opacity:.4;cursor:not-allowed}",
     ".yo-role--founder.is-on{background:linear-gradient(90deg,#ff6b8b,#3157ff);border-color:transparent}",
     ".yo-role--teacher.is-on{background:#1f9d57;border-color:#1f9d57}",
     ".yo-card--app{border-color:rgba(49,87,255,.35);box-shadow:0 0 0 3px rgba(49,87,255,.06)}",
