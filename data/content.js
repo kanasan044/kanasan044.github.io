@@ -9,7 +9,7 @@ window.YORIMICHI_CONTENT = {
     "discord_url": "",
     "x_url": "",
     "staff_page_url": "",
-    "announcement_ja": "テスト",
+    "announcement_ja": "",
     "announcement_ko": "",
     "hero_image": "",
     "image_plaza": "",
