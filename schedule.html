@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>スケジュール | YORIMICHI</title>
+  <meta name="description" content="YORIMICHI の授業・イベントのスケジュール。">
+  <meta property="og:title" content="スケジュール | YORIMICHI">
+  <meta property="og:image" content="images/classroom.jpg">
+  <meta name="theme-color" content="#ffffff">
+  <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Sans+JP:wght@400;500;700;900&family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/css/style.css">
+</head>
+<body data-page="schedule">
+  <div id="site-header"></div>
+  <main id="main">
+    <section class="page-hero">
+      <div class="hero__glow" aria-hidden="true"></div>
+      <div class="container reveal">
+        <p class="eyebrow">Schedule</p>
+        <h1 data-i18n="schedule.title"></h1>
+        <p class="page-hero__lead" data-i18n="schedule.lead"></p>
+      </div>
+    </section>
+    <section class="section section--top">
+      <div class="container">
+        <div class="toolbar">
+          <div class="tabs" role="tablist" aria-label="filter">
+            <button type="button" role="tab" aria-selected="true" data-filter="all" data-i18n="filter.all"></button>
+            <button type="button" role="tab" aria-selected="false" data-filter="lesson" data-i18n="filter.lesson"></button>
+            <button type="button" role="tab" aria-selected="false" data-filter="event" data-i18n="filter.event"></button>
+          </div>
+          <p class="toolbar__note"><span class="dot dot--mint"></span><span data-i18n="hero.tz"></span></p>
+        </div>
+        <ol class="schedule" id="schedule-list"></ol>
+        <p class="empty" id="schedule-empty" hidden data-i18n="schedule.empty"></p>
+        <div class="callout reveal">
+          <h2 data-i18n="schedule.howTitle"></h2>
+          <p data-i18n="schedule.how"></p>
+        </div>
+      </div>
+    </section>
+  </main>
+  <div id="site-footer"></div>
+  <script src="assets/js/main.js"></script>
+</body>
+</html>
