@@ -8,7 +8,7 @@ window.YORIMICHI_CONTENT = {
     "group_url": "",
     "discord_url": "",
     "x_url": "",
-    "staff_page_url": "",
+    "staff_page_url": "a",
     "announcement_ja": "",
     "announcement_ko": "",
     "hero_image": "",
@@ -205,7 +205,8 @@ window.YORIMICHI_CONTENT = {
       "desc_ja": "ハングルの読み方から。初心者向けです。.",
       "desc_ko": "한글 읽는 법부터. 초보자용이에요.",
       "host": "先生の名前",
-      "place": "1-1"
+      "place": "1-1",
+      "id": "amv275yt9fg5b"
     },
     {
       "date": "2026-10-19",
@@ -217,7 +218,8 @@ window.YORIMICHI_CONTENT = {
       "desc_ja": "あいさつと自己紹介。",
       "desc_ko": "인사와 자기소개.",
       "host": "先生の名前",
-      "place": "1-2"
+      "place": "1-2",
+      "id": "amv275yt9nu8l"
     },
     {
       "date": "2026-10-25",
@@ -229,7 +231,8 @@ window.YORIMICHI_CONTENT = {
       "desc_ja": "中央広場でゆるくおしゃべり。",
       "desc_ko": "중앙 광장에서 편하게 수다.",
       "host": "YORIMICHI 運営",
-      "place": "中央広場"
+      "place": "中央広場",
+      "id": "amv275yt9umnu"
     }
   ],
   "news": [
