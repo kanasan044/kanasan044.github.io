@@ -16,8 +16,8 @@
   var L = {
     teacher: ["先生", "선생님"], staff: ["運営スタッフ", "운영 스태프"],
     edit: ["予定を編集", "일정 편집"], logout: ["ログアウト", "로그아웃"], close: ["閉じる", "닫기"],
-    panel: ["自分の予定", "내 일정"], add: ["＋ 予定を追加", "＋ 일정 추가"],
-    note: ["自分で作った予定だけ表示・編集できます。終わった予定はサイトに表示されなくなります。", "직접 만든 일정만 보이고 편집할 수 있습니다. 지난 일정은 사이트에 표시되지 않습니다."],
+    panel: ["予定", "일정"], add: ["＋ 予定を追加", "＋ 일정 추가"],
+    note: ["日付を押すかテンプレートを選ぶと、すぐ作れます。編集・削除できるのは自分の予定だけです。保存するとすぐ公開されます。", "날짜를 누르거나 템플릿을 고르면 바로 만들 수 있어요. 편집·삭제는 내 일정만 가능합니다. 저장하면 바로 공개됩니다."],
     empty: ["まだありません", "아직 없습니다"], save: ["保存して公開", "저장하고 공개"], del: ["削除", "삭제"],
     confirmDel: ["この予定を削除しますか？", "이 일정을 삭제할까요?"], saving: ["保存しています…", "저장 중…"],
     done: ["公開しました！ 1〜2分でみんなのサイトにも反映されます。", "공개했습니다! 1~2분 후 모든 사람의 사이트에 반영됩니다."],
@@ -45,19 +45,18 @@
     obStaff: ["運営スタッフ", "운영 스태프"], obStaffSub: ["ワールドの運営やイベントを手伝う", "월드 운영과 이벤트를 도와요"],
     next: ["次へ", "다음"], back: ["戻る", "뒤로"], send: ["送信する", "보내기"],
     obStep2: ["プロフィールを登録してください", "프로필을 등록해 주세요"],
-    obStep2Sub: ["サイトの「教員・スタッフ紹介」に載ります。日本語と韓国語のどちらか片方だけでも大丈夫です。", "사이트의 '선생님·스태프 소개'에 실립니다. 일본어와 한국어 중 한쪽만 써도 괜찮아요."],
+    obStep2Sub: ["サイトの「教員・スタッフ紹介」に載ります。", "사이트의 '선생님·스태프 소개'에 실립니다."],
     vrcName: ["VRChat の表示名（1文字も違わないように）", "VRChat 표시 이름（한 글자도 틀리지 않게）"],
     vrcNameHelp: ["ワールドで先生・スタッフとして扱われる名前です。", "월드에서 선생님·스태프로 인식되는 이름입니다."],
-    lang_ja: ["担当（日本語）", "담당（일본어）"], lang_ko: ["担当（韓国語）", "담당（한국어）"],
-    role_ja: ["役割（日本語）", "역할（일본어）"], role_ko: ["役割（韓国語）", "역할（한국어）"],
-    bio_ja: ["自己紹介（日本語）", "자기소개（일본어）"], bio_ko: ["自己紹介（韓国語）", "자기소개（한국어）"],
+    bio: ["自己紹介（日本語・韓国語どちらでもOK）", "자기소개（일본어·한국어 어느 쪽이든 OK）"],
+    tags: ["タグ（押すと追加・もう一度押すと外れます）", "태그（누르면 추가, 다시 누르면 해제）"],
+    tagsMax: ["タグは6つまでです", "태그는 6개까지입니다"],
     photo: ["写真（なくても大丈夫）", "사진（없어도 괜찮아요）"], pick: ["写真を選ぶ", "사진 선택"], unpick: ["外す", "삭제"], noPhoto: ["写真なし", "사진 없음"],
     obDone: ["送信しました！", "보냈습니다!"],
     obDoneSub: ["かなさんが確認して承認すると、先生・スタッフとして使えるようになります。承認されたら、サイトのいちばん下の「スタッフログイン」からログインしてください。", "운영자(카나상)가 확인하고 승인하면 선생님·스태프로 이용할 수 있습니다. 승인 후 사이트 맨 아래의 '스태프 로그인'으로 로그인해 주세요."],
     pending: ["承認待ち", "승인 대기"], pendingNote: ["申請を受け付けました。かなさんの承認をお待ちください。", "신청이 접수되었습니다. 운영자(카나상)의 승인을 기다려 주세요."],
-    redo: ["申請を直す", "신청 수정"],
     // members: their own profile
-    profile: ["プロフィール", "프로필"], profileNote: ["VRChat の表示名と役割を変えたいときは、かなさんに伝えてください。", "VRChat 표시 이름과 역할을 바꾸려면 운영자(카나상)에게 알려 주세요."],
+    profile: ["プロフィール", "프로필"], profileNote: ["自己紹介・タグ・写真を直せます。VRChat の表示名と役割を変えたいときは、かなさんに伝えてください。", "자기소개·태그·사진을 수정할 수 있어요. VRChat 표시 이름과 역할을 바꾸려면 운영자(카나상)에게 알려 주세요."],
     profileSaved: ["プロフィールを保存しました。1〜2分でサイトに反映されます。", "프로필을 저장했습니다. 1~2분 후 사이트에 반영됩니다."]
   };
   var ERR = {
@@ -101,7 +100,11 @@
   }
 
   function forget() { try { localStorage.removeItem(SESSION_KEY); } catch (e) { /* ignore */ } token = null; }
-  function logout() { forget(); location.href = location.pathname + location.search; }
+  // Log out: the staff API stops this login on every device; the profile and role stay as they are.
+  async function logout() {
+    try { await call("POST", "/logout"); } catch (e) { /* signed out here anyway */ }
+    forget(); location.href = location.pathname + location.search;
+  }
 
   // Coming back from Discord: the page address ends with #yo_session=… (or #yo_error=…) and the value this page saved.
   function takeLoginResult() {
@@ -137,6 +140,26 @@
     });
     input.click();
   }
+  // Tags: tap to add, tap again to remove (up to 6). The list and labels come from main.js (SITE.tags).
+  function tagPicker(data) {
+    if (!Array.isArray(data.tags)) data.tags = [];
+    var wrap = $("div", { class: "yo-field" });
+    function draw() {
+      wrap.innerHTML = "";
+      wrap.appendChild($("span", { text: pair("tags") + "（" + data.tags.length + "/6）" }));
+      wrap.appendChild($("div", { class: "yo-tags" }, (SITE.tags || []).map(function (tg) {
+        var on = data.tags.indexOf(tg[0]) >= 0;
+        return $("button", { type: "button", class: "yo-tag" + (on ? " is-on" : ""), text: (on ? "✓ " : "") + tg[ko() ? 2 : 1], on: { click: function () {
+          if (on) data.tags = data.tags.filter(function (k) { return k !== tg[0]; });
+          else if (data.tags.length >= 6) { toast(t("tagsMax"), false, true); return; }
+          else data.tags = data.tags.concat([tg[0]]);
+          draw();
+        } } });
+      })));
+    }
+    draw();
+    return wrap;
+  }
   // Profile form shared by the new-person screen and the members' profile panel.
   function profileForm(role, data, withName) {
     var f = function (key, type) {
@@ -151,7 +174,7 @@
     var kids = [];
     if (withName) kids.push(f("vrcName"), $("p", { class: "yo-muted", text: pair("vrcNameHelp") }));
     if (withName) { kids[0].querySelector("input").value = data.name || ""; kids[0].querySelector("input").addEventListener("input", function (e) { data.name = e.target.value; }); }
-    kids.push(role === "teacher" ? f("lang_ja") : f("role_ja"), role === "teacher" ? f("lang_ko") : f("role_ko"), f("bio_ja", "textarea"), f("bio_ko", "textarea"));
+    kids.push(f("bio", "textarea"), tagPicker(data));
     kids.push($("div", { class: "yo-field" }, [$("span", { text: pair("photo") }), $("div", { class: "yo-row" }, [thumb,
       $("button", { class: "yo-btn yo-btn--sm", type: "button", text: t("pick"), on: { click: function () { pickPicture(function (d) { data.image = d; showThumb(); }); } } }),
       $("button", { class: "yo-btn yo-btn--sm", type: "button", text: t("unpick"), on: { click: function () { data.image = ""; showThumb(); } } })
@@ -159,10 +182,22 @@
     return $("div", { class: "yo-list" }, kids);
   }
 
+  // Registration must be finished: everything behind the dialog can't be clicked, focused or scrolled.
+  // (It shows again on every page until it is sent, so opening another page doesn't skip it.)
+  function lockPage(box) {
+    Array.prototype.forEach.call(document.body.children, function (n) { if (n !== box && !n.classList.contains("yo-toast")) n.setAttribute("inert", ""); });
+    document.documentElement.style.overflow = "hidden";
+  }
+  function unlockPage() {
+    Array.prototype.forEach.call(document.querySelectorAll("[inert]"), function (n) { n.removeAttribute("inert"); });
+    document.documentElement.style.overflow = "";
+  }
+
   // New person (opened a "new person" invite): 1) choose 先生 / 運営スタッフ, 2) profile, 3) sent → waits for approval.
+  // Shown only until the profile is sent (status "draft"); it can't be closed or skipped.
   function showOnboarding() {
-    var data = { role: me.applied || "", name: me.name || "", image: "" };
-    var box = $("div", { class: "yo-modal yo-ui", role: "dialog", "aria-modal": "true" });
+    var data = { role: me.applied || "", name: me.name || "", bio: "", tags: [], image: "" };
+    var box = $("div", { class: "yo-modal yo-modal--locked yo-ui", role: "dialog", "aria-modal": "true" });
     var card = $("div", { class: "yo-modal__card yo-modal__card--wide" });
     box.appendChild(card);
     function step1() {
@@ -206,10 +241,11 @@
       card.appendChild($("h2", { text: pair("obDone") }));
       card.appendChild($("p", { text: L.obDoneSub[0] }));
       card.appendChild($("p", { class: "yo-muted", text: L.obDoneSub[1] }));
-      card.appendChild($("button", { class: "yo-btn yo-btn--primary", type: "button", text: pair("close"), on: { click: function () { box.remove(); me.status = "pending"; buildBar(); } } }));
+      card.appendChild($("button", { class: "yo-btn yo-btn--primary", type: "button", text: "OK", on: { click: function () { box.remove(); unlockPage(); me.status = "pending"; buildBar(); } } }));
     }
     step1();
     document.body.appendChild(box);
+    lockPage(box);
   }
 
   // Members edit their own 担当／役割, introduction and photo (not the VRChat name or the role).
@@ -255,16 +291,16 @@
   // Opened an invite link (…?invite=…): explain, then log in with Discord carrying the invite.
   function showInvite(invite) {
     var both = function (k) { return [$("p", { class: "yo-muted", text: L[k][0] }), $("p", { class: "yo-muted", text: L[k][1] })]; };
-    var box = $("div", { class: "yo-modal yo-ui", role: "dialog", "aria-modal": "true" }, [
+    var box = $("div", { class: "yo-modal yo-modal--locked yo-ui", role: "dialog", "aria-modal": "true" }, [
       $("div", { class: "yo-modal__card" }, [
         $("p", { class: "yo-eyebrow", text: "WELCOME" }),
         $("h2", { text: L.inviteTitle[0] + " / " + L.inviteTitle[1] })
       ].concat(both("inviteBody"), [
-        $("button", { class: "yo-btn yo-btn--primary", type: "button", text: L.inviteBtn[0] + " / " + L.inviteBtn[1], on: { click: function () { SITE.startLogin(invite); } } }),
-        $("button", { class: "yo-btn", type: "button", text: L.close[0] + " / " + L.close[1], on: { click: function () { box.remove(); } } })
+        $("button", { class: "yo-btn yo-btn--primary", type: "button", text: L.inviteBtn[0] + " / " + L.inviteBtn[1], on: { click: function () { SITE.startLogin(invite); } } })
       ]))
     ]);
     document.body.appendChild(box);
+    lockPage(box);
   }
 
   // Show the latest schedule on the page right away (GitHub Pages needs a minute or two to catch up).
@@ -290,66 +326,31 @@
     document.body.appendChild(box);
   }
 
-  /* ---------- schedule panel (teachers) ---------- */
+  /* ---------- schedule panel (teachers): calendar + templates (schedule-editor.js), saved right away ---------- */
   var panel = null;
-  function field(item, key, type, options) {
-    var input;
-    if (type === "textarea") input = $("textarea", { class: "yo-input", rows: "3" });
-    else if (type === "select") { input = $("select", { class: "yo-input" }); options.forEach(function (o) { input.appendChild($("option", { value: o[0], text: ko() ? o[1] : o[0] })); }); }
-    else input = $("input", { class: "yo-input", type: type || "text" });
-    input.value = item[key] || "";
-    input.addEventListener("input", function () { item[key] = input.value; });
-    return $("label", { class: "yo-field" }, [$("span", { text: t(key) }), input]);
-  }
-  function card(item, isNew) {
-    var draft = JSON.parse(JSON.stringify(item));
-    var saveBtn = $("button", { class: "yo-btn yo-btn--sm yo-btn--primary", type: "button", text: t("save") });
-    var el = $("div", { class: "yo-card" }, [
-      field(draft, "date", "date"), field(draft, "start", "time"), field(draft, "end", "time"),
-      field(draft, "type", "select", [["授業", "수업"], ["イベント", "이벤트"]]),
-      field(draft, "title_ja"), field(draft, "title_ko"), field(draft, "desc_ja", "textarea"), field(draft, "desc_ko", "textarea"),
-      field(draft, "host"), field(draft, "place"),
-      $("div", { class: "yo-row yo-row--end" }, [
-        $("button", { class: "yo-btn yo-btn--sm yo-btn--danger", type: "button", text: t("del"), on: { click: async function () {
-          if (isNew) { el.remove(); return; }
-          if (!confirm(t("confirmDel"))) return;
-          await send({ op: "delete", id: item.id });
-        } } }),
-        saveBtn
-      ])
-    ]);
-    saveBtn.addEventListener("click", async function () {
-      saveBtn.disabled = true;
-      await send(isNew ? { op: "add", item: draft } : { op: "update", id: item.id, item: draft });
-      saveBtn.disabled = false;
-    });
-    return el;
-  }
   async function send(body) {
     toast(t("saving"), true);
-    try {
-      var res = await call("POST", "/schedule", body);
-      apply(res.schedule);
-      drawPanel();
-      toast(t("done"));
-    } catch (e) {
-      toast(t("failed") + "：" + errText(e), false, true);
-    }
+    try { var res = await call("POST", "/schedule", body); apply(res.schedule); }
+    catch (e) { var err = new Error(t("failed") + "：" + errText(e)); throw err; }
   }
   function drawPanel() {
     if (!panel) return;
     var body = panel.querySelector(".yo-panel__body");
     body.innerHTML = "";
-    var list = $("div", { class: "yo-list" });
-    list.appendChild($("button", { class: "yo-btn yo-btn--primary yo-btn--block", type: "button", text: t("add"), on: { click: function () {
-      var blank = { date: new Date(Date.now() + 9 * 3600000).toISOString().slice(0, 10), start: "21:00", end: "22:00", type: "授業", host: me.name };
-      list.insertBefore(card(blank, true), list.children[2] || null);
-    } } }));
-    list.appendChild($("p", { class: "yo-muted", text: t("note") }));
-    var mine = schedule.filter(function (x) { return x.owner === me.name; });
-    if (!mine.length) list.appendChild($("p", { class: "yo-empty", text: t("empty") }));
-    mine.forEach(function (x) { list.appendChild(card(x, false)); });
-    body.appendChild(list);
+    if (!window.YorimichiScheduleEditor) { SITE.loadScript("assets/js/schedule-editor.js", drawPanel); return; }
+    body.appendChild($("p", { class: "yo-muted", text: t("note") }));
+    body.appendChild(window.YorimichiScheduleEditor({
+      lang: SITE.getLang,
+      items: function () { return schedule; },
+      canEdit: function (x) { return x.owner === me.name; },
+      templates: function () { return (window.YORIMICHI_CONTENT || {}).schedule_templates || []; },
+      host: me.name,
+      toast: function (msg, bad) { toast(msg, false, bad); },
+      notice: t("done").replace(/^[^！!]*[！!]\s*/, ""),
+      add: function (items) { return send({ op: "add", items: items }); },
+      update: function (id, item) { return send({ op: "update", id: id, item: item }); },
+      remove: function (id) { return send({ op: "delete", id: id }); }
+    }));
   }
   function openPanel() {
     if (panel) panel.remove();
@@ -376,7 +377,6 @@
         text: "● " + (me.discord || me.name) + "（" + label + "）" }),
       me.role === "teacher" ? b(t("edit"), openPanel, "yo-bar__save") : null,
       me.role === "teacher" || me.role === "staff" ? b(t("profile"), openProfile) : null,
-      applicant ? b(t("redo"), showOnboarding) : null,
       b(t("logout"), logout, "yo-bar__ghost")
     ]);
     document.body.appendChild(bar);
@@ -418,6 +418,8 @@
     ".yo-muted{font-size:13px;color:var(--muted);margin:0}",
     ".yo-empty{text-align:center;color:var(--muted);font-size:14px;padding:16px}",
     ".yo-modal{position:fixed;inset:0;z-index:100;display:grid;place-items:center;padding:16px;background:rgba(12,14,19,.45);backdrop-filter:blur(4px)}",
+    // Registration: under the toast (98) so its messages stay visible; nothing behind can be reached.
+    ".yo-modal--locked{z-index:96;background:rgba(12,14,19,.62);overscroll-behavior:contain}",
     ".yo-modal__card{width:min(440px,100%);display:grid;gap:12px;padding:28px;background:#fff;border-radius:24px;box-shadow:var(--shadow-lg)}",
     ".yo-modal__card h2{font-size:20px;margin:0}",
     ".yo-modal__card--wide{width:min(560px,100%);max-height:calc(100vh - 32px);overflow-y:auto}",
@@ -429,6 +431,9 @@
     ".yo-choice.is-on{border-color:var(--accent);background:rgba(49,87,255,.06);box-shadow:0 0 0 3px rgba(49,87,255,.12)}",
     ".yo-thumb{width:56px;height:56px;flex:none;display:grid;place-items:center;overflow:hidden;border-radius:50%;background:var(--soft);border:1px solid var(--line);font-size:10.5px;color:var(--muted)}",
     ".yo-thumb img{width:100%;height:100%;object-fit:cover}",
+    ".yo-tags{display:flex;flex-wrap:wrap;gap:6px}",
+    ".yo-tag{padding:7px 12px;border:1px solid var(--line);border-radius:999px;background:#fff;font:inherit;font-size:13px;font-weight:700;color:var(--ink);cursor:pointer}",
+    ".yo-tag:hover{border-color:var(--accent)}.yo-tag.is-on{background:var(--accent);border-color:var(--accent);color:#fff}",
     ".yo-eyebrow{font-size:12px;font-weight:800;letter-spacing:.14em;color:var(--accent);margin:0}",
     ".yo-code{margin:4px 0;padding:14px;border-radius:12px;background:var(--soft);font:700 18px/1.3 ui-monospace,Consolas,monospace;text-align:center;user-select:all}",
     ".yo-toast{position:fixed;left:50%;bottom:84px;transform:translate(-50%,10px);z-index:98;max-width:min(560px,calc(100% - 32px));padding:12px 18px;border-radius:14px;background:#fff;border:1px solid var(--line);box-shadow:var(--shadow);font-size:14px;font-weight:600;opacity:0;pointer-events:none;transition:all .25s}",
@@ -451,17 +456,18 @@
       if (me.role === "admin") {
         // The admin gets the full editor (its own toolbar); hand over this session.
         window.YORIMICHI_SESSION = token;
-        SITE.loadScript("assets/js/admin.js");
-        if (result) toast(t("welcome") + "：" + me.name);
+        SITE.loadScript("assets/js/schedule-editor.js", function () { SITE.loadScript("assets/js/admin.js"); });
+        if (result) toast(t("welcome") + "：" + (me.discord || me.name));
         var lb = document.getElementById("staff-login"); if (lb) lb.hidden = true;
         return;
       }
-      buildBar();
       if (me.role === "applicant") {
-        if (me.status === "draft") showOnboarding(); else toast(t("pendingNote"));
+        // Not registered yet: only the registration (no toolbar, nothing else) until it is sent.
+        if (me.status === "draft") showOnboarding(); else { buildBar(); toast(t("pendingNote")); }
       } else {
+        buildBar();
         if (result) toast((result.joined ? t("joined") : t("welcome")) + "：" + (me.discord || me.name));
-        if (me.role === "teacher") apply((await call("GET", "/schedule")).schedule);
+        if (me.role === "teacher") { SITE.loadScript("assets/js/schedule-editor.js"); apply((await call("GET", "/schedule")).schedule); }
       }
     } catch (e) {
       if (e.status === 401) { forget(); toast(t("expired"), false, true); }

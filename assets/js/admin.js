@@ -78,8 +78,10 @@
     return me.name;
   }
 
-  function logout() {
+  async function logout() {
     if (dirty() && !confirm("保存していない変更があります。ログアウトしますか？")) return;
+    // Also tell the staff API, so this login stops working everywhere (not only in this browser).
+    try { await api("/logout", { method: "POST", body: {} }); } catch (e) { /* signed out here anyway */ }
     try { localStorage.removeItem(SESSION_KEY); } catch (e) { /* ignore */ }
     location.href = location.pathname;
   }
@@ -233,8 +235,9 @@
         var same = function (a, b) { return a.name === b.name && a.h === b.h; };
         var removed = JSON.parse(keysSaved).accounts.filter(function (a) { return !keys.accounts.some(function (b) { return same(a, b); }); });
         keys.accounts = latest.filter(function (a) { return !removed.some(function (b) { return same(a, b); }); });
-        var latestEpoch = kf && kf.text ? (JSON.parse(kf.text).epoch || 0) : 0;
-        if (latestEpoch > (keys.epoch || 0)) keys.epoch = latestEpoch;
+        var latestData = kf && kf.text ? JSON.parse(kf.text) : {};
+        if ((latestData.epoch || 0) > (keys.epoch || 0)) keys.epoch = latestData.epoch;
+        if (latestData.outs) keys.outs = latestData.outs; else delete keys.outs;   // logouts are written by the staff API only
         await putFile(KEYS_PATH, toB64(JSON.stringify(keys, null, 2) + "\n"), "スタッフログインの Discord を更新", kf && kf.sha);
         keysSaved = JSON.stringify(keys);
       }
@@ -365,7 +368,30 @@
       $("button", { class: "yo-btn yo-btn--sm", type: "button", text: "外す", on: { click: function () { item[key] = ""; show(); changed(true); } } })
     ])]);
   }
+  function tagName(key) { var tg = (SITE.tags || []).filter(function (x) { return x[0] === key; })[0]; return tg ? tg[1] : key; }
+  // Tags: tap to add / remove (up to 6), same list as the members' own profile.
+  function tagsField(label, item, key) {
+    var wrap = $("div", { class: "yo-field" });
+    function draw() {
+      var cur = Array.isArray(item[key]) ? item[key] : [];
+      wrap.innerHTML = "";
+      wrap.appendChild($("span", { text: label + "（" + cur.length + "/6）" }));
+      wrap.appendChild($("div", { class: "yo-tags" }, (SITE.tags || []).map(function (tg) {
+        var on = cur.indexOf(tg[0]) >= 0;
+        return $("button", { type: "button", class: "yo-tag" + (on ? " is-on" : ""), text: (on ? "✓ " : "") + tg[1], on: { click: function () {
+          if (on) item[key] = cur.filter(function (k) { return k !== tg[0]; });
+          else if (cur.length >= 6) { toast("タグは6つまでです", false, true); return; }
+          else item[key] = cur.concat([tg[0]]);
+          changed(); draw();
+        } } });
+      })));
+    }
+    draw();
+    return wrap;
+  }
   function itemField(item, f) {
+    if (f[4] === "legacy" && !item[f[0]]) return null;
+    if (f[2] === "tags") return tagsField(f[1], item, f[0]);
     if (f[2] === "photo") return photoField(f[1], item, f[0]);
     if (f[2] === "bool") return field(f[1], item[f[0]] === false ? "表示しない" : "表示する", function (v) { item[f[0]] = v === "表示する"; }, "select", ["表示する", "表示しない"]);
     return field(f[1], item[f[0]], function (v) { item[f[0]] = v; }, f[2], f[3]);
@@ -381,7 +407,7 @@
       if (!arr().length) body.appendChild($("p", { class: "yo-empty", text: "まだありません" }));
       arr().forEach(function (item, i) {
         var card = $("div", { class: "yo-card" });
-        fields.forEach(function (f) { card.appendChild(itemField(item, f)); });
+        fields.forEach(function (f) { var el = itemField(item, f); if (el) card.appendChild(el); });
         if (extra) card.appendChild(extra(item));
         card.appendChild($("div", { class: "yo-row yo-row--end" }, [
           i > 0 ? $("button", { class: "yo-btn yo-btn--sm", type: "button", text: "↑", title: "上へ", on: { click: function () { var a = arr(); a.splice(i - 1, 0, a.splice(i, 1)[0]); changed(true); draw(); } } }) : null,
@@ -425,10 +451,24 @@
   }
   var TABS = {
     schedule: ["予定", function () {
-      return listEditor("予定", "schedule", function () { return { id: newId(), date: "", start: "21:00", end: "22:00", type: "授業", title_ja: "", title_ko: "", desc_ja: "", desc_ko: "", host: "", place: "" }; }, [
-        ["date", "日付", "date"], ["start", "開始", "time"], ["end", "終了", "time"], ["type", "種類", "select", ["授業", "イベント"]],
-        ["title_ja", "タイトル（日本語）"], ["title_ko", "タイトル（韓国語）"], ["desc_ja", "説明（日本語）", "textarea"], ["desc_ko", "説明（韓国語）", "textarea"],
-        ["host", "担当"], ["place", "場所"]], "終わった予定はサイトに自動で表示されなくなります。");
+      // Calendar + templates (schedule-editor.js). Changes go into the draft and are published with 「保存して公開」.
+      // Templates saved here are shared with the teachers (content.schedule_templates).
+      if (!window.YorimichiScheduleEditor) return $("p", { class: "yo-muted", text: "読み込み中です。もう一度「予定」を押してください。" });
+      var find = function (id) { return draft.schedule.filter(function (x) { return x.id === id; })[0]; };
+      return window.YorimichiScheduleEditor({
+        lang: function () { return "ja"; },
+        items: function () { return draft.schedule; },
+        canEdit: function () { return true; },
+        templates: function () { return draft.schedule_templates || []; },
+        saveTemplate: function (tp) { draft.schedule_templates = (draft.schedule_templates || []).concat([tp]); changed(true); },
+        removeTemplate: function (i) { draft.schedule_templates.splice(i, 1); changed(true); },
+        host: "",
+        notice: "「保存して公開」で公開されます。",
+        toast: function (msg, bad) { toast(msg, false, bad); },
+        add: function (items) { items.forEach(function (x) { x.id = newId(); draft.schedule.push(x); }); changed(true); },
+        update: function (id, item) { var x = find(id); if (x) { Object.keys(item).forEach(function (k) { if (k !== "id" && k !== "owner") x[k] = item[k]; }); } changed(true); },
+        remove: function (id) { draft.schedule = draft.schedule.filter(function (x) { return x.id !== id; }); changed(true); }
+      });
     }],
     news: ["お知らせ", function () {
       return listEditor("お知らせ", "news", { date: new Date().toISOString().slice(0, 10), title_ja: "", title_ko: "", body_ja: "", body_ko: "", link: "" }, [
@@ -534,9 +574,8 @@
             $("strong", { text: a.name }),
             $("p", { class: "yo-muted", text: (isT ? "先生" : "運営スタッフ") + " を希望 ・ Discord：" + (a.dn || "") + "（@" + (a.username || "") + "）" })
           ])]),
-          row(isT ? "担当（日本語）" : "役割（日本語）", isT ? p.lang_ja : p.role_ja),
-          row(isT ? "担当（韓国語）" : "役割（韓国語）", isT ? p.lang_ko : p.role_ko),
-          row("紹介（日本語）", p.bio_ja), row("紹介（韓国語）", p.bio_ko),
+          row("タグ", (p.tags || []).map(tagName).join("　")),
+          row("自己紹介", p.bio),
           $("div", { class: "yo-row yo-row--end" }, [
             $("button", { class: "yo-btn yo-btn--sm yo-btn--danger", type: "button", text: "見送り", on: { click: function (e) { decide("decline", e.currentTarget); } } }),
             $("button", { class: "yo-btn yo-btn--sm yo-btn--primary", type: "button", text: "承認", on: { click: function (e) { decide("approve", e.currentTarget); } } })
@@ -550,8 +589,11 @@
   function peopleEditor() {
     var box = $("div", { class: "yo-list" });
     var common = [["name", "VRChat の表示名（1文字も違わないように）"]];
-    var tail = [["bio_ja", "紹介（日本語）", "textarea"], ["bio_ko", "紹介（韓国語）", "textarea"], ["image", "写真", "photo"], ["show", "サイトに表示", "bool"]];
-    var blank = { name: "", bio_ja: "", bio_ko: "", image: "", show: true };
+    // bio_ja / bio_ko are the older two-language introduction: only shown for entries that still have them.
+    var tail = [["bio", "自己紹介（サイトにはこちらが優先して出ます）", "textarea"], ["tags", "タグ", "tags"],
+      ["bio_ja", "以前の紹介（日本語）", "textarea", null, "legacy"], ["bio_ko", "以前の紹介（韓国語）", "textarea", null, "legacy"],
+      ["image", "写真", "photo"], ["show", "サイトに表示", "bool"]];
+    var blank = { name: "", bio: "", tags: [], image: "", show: true };
     box.appendChild($("div", { class: "yo-note" }, [
       $("strong", { text: "ここに書いた人が、ワールドで役職を持ちます。" }),
       $("span", { text: "先生：教室の鍵をかけられる／運営スタッフ：鍵のかかった教室にも入れる。保存してから数分でワールドにも反映されます（ワールドにいる人は最大5分ほど）。「サイトに表示しない」にしても役職はそのままです。" }),
@@ -566,10 +608,10 @@
     box.appendChild(applicationsBox());
     box.appendChild($("h3", { class: "yo-section", text: "先生" }));
     box.appendChild(listEditor("先生", function () { return people.teachers; }, Object.assign({ lang_ja: "", lang_ko: "" }, blank),
-      common.concat([["lang_ja", "担当（日本語）例：日本語の先生"], ["lang_ko", "担当（韓国語）例：일본어 선생님"]], tail), null, discordField));
+      common.concat([["lang_ja", "肩書き（任意・日本語）例：韓国語の先生"], ["lang_ko", "肩書き（任意・韓国語）例：한국어 선생님"]], tail), null, discordField));
     box.appendChild($("h3", { class: "yo-section", text: "運営スタッフ" }));
     box.appendChild(listEditor("運営スタッフ", function () { return people.staff; }, Object.assign({ role_ja: "", role_ko: "" }, blank),
-      common.concat([["role_ja", "役割（日本語）"], ["role_ko", "役割（韓国語）"]], tail), null, discordField));
+      common.concat([["role_ja", "肩書き（任意・日本語）例：創設者・管理者"], ["role_ko", "肩書き（任意・韓国語）"]], tail), null, discordField));
     return box;
   }
   function openPanel(tab) {
@@ -675,6 +717,9 @@
     ".yo-thumb img{width:100%;height:100%;object-fit:cover}",
     ".yo-code{margin:4px 0;padding:14px;border-radius:12px;background:var(--soft);font:700 20px/1.3 ui-monospace,Consolas,monospace;letter-spacing:.06em;text-align:center;user-select:all}",
     ".yo-nowrap{white-space:nowrap;flex:none}",
+    ".yo-tags{display:flex;flex-wrap:wrap;gap:6px}",
+    ".yo-tag{padding:6px 11px;border:1px solid var(--line);border-radius:999px;background:#fff;font:inherit;font-size:12.5px;font-weight:700;color:var(--ink);cursor:pointer}",
+    ".yo-tag:hover{border-color:var(--accent)}.yo-tag.is-on{background:var(--accent);border-color:var(--accent);color:#fff}",
     ".yo-card--app{border-color:rgba(49,87,255,.35);box-shadow:0 0 0 3px rgba(49,87,255,.06)}",
     ".yo-card--app p{white-space:pre-wrap}",
     ".yo-section{font-size:15px;margin:10px 2px 0}",
