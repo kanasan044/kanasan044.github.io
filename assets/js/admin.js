@@ -2,7 +2,8 @@
    Loaded by main.js only when this browser has signed in (or the page was opened with ?admin).
    Sign-in = a GitHub fine-grained token for the site repository, kept only in this browser. The token's user must
    be listed in content.editors AND have write access to the repository, so nobody else can edit even if they open
-   ?admin. Saving commits data/content.js (and uploaded pictures / CNAME) straight to the repository. */
+   ?admin. Saving commits data/content.js (and uploaded pictures / CNAME) straight to the repository.
+   The roster (先生・運営スタッフ) is saved to data/people.js for the site and roster.json for the VRChat world. */
 (function () {
   "use strict";
 
@@ -10,10 +11,13 @@
   var TOKEN_KEY = "yorimichi-gh-token";
   var CONTENT_PATH = "data/content.js";
   var CONTENT_HEAD = "/* サイト内の「編集」から保存されるファイルです。 */\nwindow.YORIMICHI_CONTENT = ";
+  var PEOPLE_PATH = "data/people.js", ROSTER_PATH = "roster.json";
+  var PEOPLE_HEAD = "/* サイト内の「名簿」から保存されるファイルです。 */\nwindow.YORIMICHI_PEOPLE = ";
   var SITE = window.YORIMICHI_SITE;
   if (!SITE) return;
 
   var token = null, login = "", draft = null, saved = "", editing = false;
+  var people = null, peopleSaved = "";   // roster draft (teachers / staff) and its last saved form
   var pending = {};   // settings key -> data URL of a picture chosen but not uploaded yet
   var preview = {};   // uploaded path -> data URL (shown until GitHub Pages has the new file)
 
@@ -118,11 +122,17 @@
   }
 
   /* ---------- content ---------- */
-  function dirty() { return draft && (JSON.stringify(draft) !== saved || Object.keys(pending).length > 0); }
+  function peopleDirty() { return people && JSON.stringify(people) !== peopleSaved; }
+  function dirty() { return draft && (JSON.stringify(draft) !== saved || Object.keys(pending).length > 0 || peopleDirty()); }
   function view() {
     // The page shows the draft; pictures that were just uploaded are shown from memory until Pages publishes them.
     var v = clone(draft);
     Object.keys(v.settings || {}).forEach(function (k) { if (preview[v.settings[k]]) v.settings[k] = preview[v.settings[k]]; });
+    if (people) {
+      var p = clone(people);
+      ["teachers", "staff"].forEach(function (k) { p[k].forEach(function (x) { if (preview[x.image]) x.image = preview[x.image]; }); });
+      window.YORIMICHI_PEOPLE = p;
+    }
     return v;
   }
   var renderTimer = 0;
@@ -133,15 +143,45 @@
     updateBar();
   }
 
+  function parseJs(text) { return JSON.parse(text.slice(text.indexOf("{"), text.lastIndexOf("}") + 1)); }
   async function loadLatest() {
     var f = await getFile(CONTENT_PATH);
     var obj = window.YORIMICHI_CONTENT || {};
-    if (f && f.text) obj = JSON.parse(f.text.slice(f.text.indexOf("{"), f.text.lastIndexOf("}") + 1));
+    if (f && f.text) obj = parseJs(f.text);
     draft = clone(obj);
     ["settings", "texts"].forEach(function (k) { if (!draft[k]) draft[k] = {}; });
     ["schedule", "news", "faq"].forEach(function (k) { if (!draft[k]) draft[k] = []; });
     saved = JSON.stringify(draft);
+    var pf = await getFile(PEOPLE_PATH);
+    var po = pf && pf.text ? parseJs(pf.text) : (window.YORIMICHI_PEOPLE || {});
+    people = { teachers: po.teachers || [], staff: po.staff || [] };
+    peopleSaved = JSON.stringify(people);
     SITE.setContent(view());
+  }
+
+  function jstStamp() { return new Date(Date.now() + 9 * 3600000).toISOString().slice(0, 16).replace("T", " "); }
+  async function savePeople() {
+    // Profile pictures chosen in the roster panel are still data URLs: upload them first.
+    for (var k of ["teachers", "staff"]) {
+      for (var p of people[k]) {
+        p.name = String(p.name || "").trim();
+        if (/^data:image\//.test(p.image || "")) {
+          var data = p.image, path = "images/uploads/" + new Date().toISOString().replace(/\D/g, "").slice(0, 17) + "-person" + Math.floor(Math.random() * 1e6) + ".jpg";
+          await putFile(path, data.split(",")[1], "名簿の写真を追加");
+          p.image = path; preview[path] = data;
+        }
+      }
+    }
+    var stamp = jstStamp();
+    var cur = await getFile(PEOPLE_PATH);
+    await putFile(PEOPLE_PATH, toB64(PEOPLE_HEAD + JSON.stringify({ updated: stamp, teachers: people.teachers, staff: people.staff }, null, 2) + ";\n"),
+      "名簿を編集（" + login + "）", cur && cur.sha);
+    // The world reads this list (names only, including people hidden on the site).
+    var names = function (list) { return list.map(function (p) { return p.name; }).filter(function (n, i, a) { return n && a.indexOf(n) === i; }); };
+    var roster = await getFile(ROSTER_PATH);
+    await putFile(ROSTER_PATH, toB64(JSON.stringify({ updated: stamp, teachers: names(people.teachers), staff: names(people.staff) }, null, 2) + "\n"),
+      "ワールドの役職を更新（" + login + "）", roster && roster.sha);
+    peopleSaved = JSON.stringify(people);
   }
 
   async function save() {
@@ -161,9 +201,13 @@
       draft.schedule.sort(function (a, b) { return (a.date + a.start).localeCompare(b.date + b.start); });
       draft.news.sort(function (a, b) { return String(b.date).localeCompare(String(a.date)); });
       // 3) content
-      var cur = await getFile(CONTENT_PATH);
-      var text = CONTENT_HEAD + JSON.stringify(draft, null, 2) + ";\n";
-      await putFile(CONTENT_PATH, toB64(text), "サイトを編集（" + login + "）", cur && cur.sha);
+      if (JSON.stringify(draft) !== saved) {
+        var cur = await getFile(CONTENT_PATH);
+        var text = CONTENT_HEAD + JSON.stringify(draft, null, 2) + ";\n";
+        await putFile(CONTENT_PATH, toB64(text), "サイトを編集（" + login + "）", cur && cur.sha);
+      }
+      // 3b) roster (site + world)
+      if (peopleDirty()) await savePeople();
       // 4) custom domain
       var oldDomain = (JSON.parse(saved).settings || {}).domain || "", domain = String(draft.settings.domain || "").trim();
       if (domain !== oldDomain) {
@@ -233,25 +277,27 @@
   }
   document.addEventListener("click", blockLinks, true);
 
-  function pickImage(key) {
+  function pickPicture(maxSize, done) {
     var input = $("input", { type: "file", accept: "image/*" });
     input.addEventListener("change", function () {
       var file = input.files[0]; if (!file) return;
       var img = new Image(), url = URL.createObjectURL(file);
       img.onload = function () {
-        var scale = Math.min(1, 1920 / Math.max(img.width, img.height));
+        var scale = Math.min(1, maxSize / Math.max(img.width, img.height));
         var c = document.createElement("canvas");
         c.width = Math.round(img.width * scale); c.height = Math.round(img.height * scale);
         var g = c.getContext("2d"); g.fillStyle = "#fff"; g.fillRect(0, 0, c.width, c.height); g.drawImage(img, 0, 0, c.width, c.height);
-        var data = c.toDataURL("image/jpeg", 0.86);
         URL.revokeObjectURL(url);
-        pending[key] = data; draft.settings[key] = data;
-        changed(true);
-        toast("写真を差し替えました。「保存して公開」で公開されます。");
+        done(c.toDataURL("image/jpeg", 0.86));
+        toast("写真を選びました。「保存して公開」で公開されます。");
       };
+      img.onerror = function () { URL.revokeObjectURL(url); toast("この写真は読み込めませんでした（JPEG か PNG を選んでください）", false, true); };
       img.src = url;
     });
     input.click();
+  }
+  function pickImage(key) {
+    pickPicture(1920, function (data) { pending[key] = data; draft.settings[key] = data; changed(true); });
   }
 
   function setEditing(on) {
@@ -274,21 +320,42 @@
     input.addEventListener("input", function () { onInput(input.value); changed(); });
     return $("label", { class: "yo-field" }, [$("span", { text: label }), input]);
   }
+  // Profile picture: shrunk in the browser, kept as a data URL in the draft and uploaded on save.
+  function photoField(label, item, key) {
+    var thumb = $("div", { class: "yo-thumb" });
+    function show() {
+      var src = preview[item[key]] || item[key] || "";
+      thumb.innerHTML = "";
+      if (src) thumb.appendChild($("img", { src: src, alt: "" })); else thumb.textContent = "写真なし";
+    }
+    show();
+    return $("div", { class: "yo-field" }, [$("span", { text: label }), $("div", { class: "yo-row" }, [thumb,
+      $("button", { class: "yo-btn yo-btn--sm", type: "button", text: "写真を選ぶ", on: { click: function () {
+        pickPicture(640, function (data) { item[key] = data; show(); changed(true); }); } } }),
+      $("button", { class: "yo-btn yo-btn--sm", type: "button", text: "外す", on: { click: function () { item[key] = ""; show(); changed(true); } } })
+    ])]);
+  }
+  function itemField(item, f) {
+    if (f[2] === "photo") return photoField(f[1], item, f[0]);
+    if (f[2] === "bool") return field(f[1], item[f[0]] === false ? "表示しない" : "表示する", function (v) { item[f[0]] = v === "表示する"; }, "select", ["表示する", "表示しない"]);
+    return field(f[1], item[f[0]], function (v) { item[f[0]] = v; }, f[2], f[3]);
+  }
   function listEditor(title, listKey, blank, fields, note) {
     var body = $("div", { class: "yo-list" });
+    var arr = function () { return typeof listKey === "function" ? listKey() : draft[listKey]; };
     function draw() {
       body.innerHTML = "";
       body.appendChild($("button", { class: "yo-btn yo-btn--primary yo-btn--block", type: "button", text: "＋ " + title + "を追加",
-        on: { click: function () { draft[listKey].unshift(clone(blank)); changed(true); draw(); } } }));
+        on: { click: function () { arr().unshift(clone(blank)); changed(true); draw(); } } }));
       if (note) body.appendChild($("p", { class: "yo-muted", text: note }));
-      if (!draft[listKey].length) body.appendChild($("p", { class: "yo-empty", text: "まだありません" }));
-      draft[listKey].forEach(function (item, i) {
+      if (!arr().length) body.appendChild($("p", { class: "yo-empty", text: "まだありません" }));
+      arr().forEach(function (item, i) {
         var card = $("div", { class: "yo-card" });
-        fields.forEach(function (f) { card.appendChild(field(f[1], item[f[0]], function (v) { item[f[0]] = v; }, f[2], f[3])); });
+        fields.forEach(function (f) { card.appendChild(itemField(item, f)); });
         card.appendChild($("div", { class: "yo-row yo-row--end" }, [
-          i > 0 ? $("button", { class: "yo-btn yo-btn--sm", type: "button", text: "↑", title: "上へ", on: { click: function () { var a = draft[listKey]; a.splice(i - 1, 0, a.splice(i, 1)[0]); changed(true); draw(); } } }) : null,
+          i > 0 ? $("button", { class: "yo-btn yo-btn--sm", type: "button", text: "↑", title: "上へ", on: { click: function () { var a = arr(); a.splice(i - 1, 0, a.splice(i, 1)[0]); changed(true); draw(); } } }) : null,
           $("button", { class: "yo-btn yo-btn--sm yo-btn--danger", type: "button", text: "削除",
-            on: { click: function () { if (confirm("この" + title + "を削除しますか？")) { draft[listKey].splice(i, 1); changed(true); draw(); } } } })
+            on: { click: function () { if (confirm("この" + title + "を削除しますか？")) { arr().splice(i, 1); changed(true); draw(); } } } })
         ]));
         body.appendChild(card);
       });
@@ -328,8 +395,26 @@
       return listEditor("質問", "faq", { q_ja: "", q_ko: "", a_ja: "", a_ko: "" }, [
         ["q_ja", "質問（日本語）"], ["q_ko", "質問（韓国語）"], ["a_ja", "答え（日本語）", "textarea"], ["a_ko", "答え（韓国語）", "textarea"]]);
     }],
-    settings: ["リンク・設定", settingsEditor]
+    settings: ["リンク・設定", settingsEditor],
+    people: ["先生・運営スタッフ名簿", peopleEditor]
   };
+  function peopleEditor() {
+    var box = $("div", { class: "yo-list" });
+    var common = [["name", "VRChat の表示名（1文字も違わないように）"]];
+    var tail = [["bio_ja", "紹介（日本語）", "textarea"], ["bio_ko", "紹介（韓国語）", "textarea"], ["image", "写真", "photo"], ["show", "サイトに表示", "bool"]];
+    var blank = { name: "", bio_ja: "", bio_ko: "", image: "", show: true };
+    box.appendChild($("div", { class: "yo-note" }, [
+      $("strong", { text: "ここに書いた人が、ワールドで役職を持ちます。" }),
+      $("span", { text: "先生：教室の鍵をかけられる／運営スタッフ：鍵のかかった教室にも入れる。保存してから数分でワールドにも反映されます（ワールドにいる人は最大5分ほど）。「サイトに表示しない」にしても役職はそのままです。" })
+    ]));
+    box.appendChild($("h3", { class: "yo-section", text: "先生" }));
+    box.appendChild(listEditor("先生", function () { return people.teachers; }, Object.assign({ lang_ja: "", lang_ko: "" }, blank),
+      common.concat([["lang_ja", "担当（日本語）例：日本語の先生"], ["lang_ko", "担当（韓国語）例：일본어 선생님"]], tail)));
+    box.appendChild($("h3", { class: "yo-section", text: "運営スタッフ" }));
+    box.appendChild(listEditor("運営スタッフ", function () { return people.staff; }, Object.assign({ role_ja: "", role_ko: "" }, blank),
+      common.concat([["role_ja", "役割（日本語）"], ["role_ko", "役割（韓国語）"]], tail)));
+    return box;
+  }
   function openPanel(tab) {
     if (panel) panel.remove();
     panel = $("aside", { class: "yo-panel yo-ui" }, [
@@ -360,6 +445,7 @@
       b("予定", function () { openPanel("schedule"); }),
       b("お知らせ", function () { openPanel("news"); }),
       b("質問", function () { openPanel("faq"); }),
+      b("名簿", function () { if (people) openPanel("people"); }),
       b("リンク・設定", function () { openPanel("settings"); }),
       b("保存済み", save, { "data-save": "1", class: "yo-bar__save" }),
       b("ログアウト", logout, { class: "yo-bar__ghost" })
@@ -386,7 +472,7 @@
   /* ---------- styles (admin UI only) ---------- */
   document.head.appendChild($("style", { text: [
     ".yo-ui{font-family:var(--font-ja);color:var(--ink);line-height:1.5}",
-    ".yo-bar{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);z-index:90;display:flex;align-items:center;gap:4px;padding:6px;max-width:calc(100% - 24px);overflow-x:auto;background:rgba(12,14,19,.92);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border-radius:999px;box-shadow:0 20px 40px -12px rgba(0,0,0,.45);color:#fff}",
+    ".yo-bar{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);z-index:97;display:flex;align-items:center;gap:4px;padding:6px;max-width:calc(100% - 24px);overflow-x:auto;background:rgba(12,14,19,.92);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border-radius:999px;box-shadow:0 20px 40px -12px rgba(0,0,0,.45);color:#fff}",
     ".yo-bar__who{padding:0 12px 0 10px;font-size:12.5px;font-weight:700;color:#7ee2a8;white-space:nowrap}",
     ".yo-bar__btn{border:0;background:transparent;color:#fff;padding:9px 14px;border-radius:999px;font:inherit;font-size:13.5px;font-weight:600;white-space:nowrap;cursor:pointer}",
     ".yo-bar__btn:hover{background:rgba(255,255,255,.1)}",
@@ -421,6 +507,11 @@
     ".yo-btn--block{width:100%}.yo-btn--sm{padding:6px 12px;font-size:13px}",
     ".yo-btn--danger{color:#d43c64;border-color:rgba(212,60,100,.3)}",
     ".yo-muted{font-size:13px;color:var(--muted);margin:0}",
+    ".yo-thumb{width:56px;height:56px;flex:none;display:grid;place-items:center;overflow:hidden;border-radius:50%;background:var(--soft);border:1px solid var(--line);font-size:10.5px;color:var(--muted)}",
+    ".yo-thumb img{width:100%;height:100%;object-fit:cover}",
+    ".yo-section{font-size:15px;margin:10px 2px 0}",
+    ".yo-note{display:grid;gap:4px;padding:14px 16px;border-radius:14px;background:rgba(49,87,255,.07);font-size:13px;color:var(--ink)}",
+    ".yo-note span{color:var(--muted)}",
     ".yo-empty{text-align:center;color:var(--muted);font-size:14px;padding:16px}",
     ".yo-modal{position:fixed;inset:0;z-index:100;display:grid;place-items:center;padding:16px;background:rgba(12,14,19,.45);backdrop-filter:blur(4px)}",
     ".yo-modal__card{width:min(440px,100%);display:grid;gap:12px;padding:28px;background:#fff;border-radius:24px;box-shadow:var(--shadow-lg)}",
@@ -428,7 +519,7 @@
     ".yo-eyebrow{font-size:12px;font-weight:800;letter-spacing:.14em;color:var(--accent);margin:0}",
     ".yo-err{min-height:1.2em;font-size:13px;color:#d43c64;margin:0}",
     ".yo-link{font-size:13px;font-weight:700;color:var(--accent)}",
-    ".yo-toast{position:fixed;left:50%;bottom:84px;transform:translate(-50%,10px);z-index:96;max-width:min(560px,calc(100% - 32px));padding:12px 18px;border-radius:14px;background:#fff;border:1px solid var(--line);box-shadow:var(--shadow);font-size:14px;font-weight:600;opacity:0;pointer-events:none;transition:all .25s}",
+    ".yo-toast{position:fixed;left:50%;bottom:84px;transform:translate(-50%,10px);z-index:98;max-width:min(560px,calc(100% - 32px));padding:12px 18px;border-radius:14px;background:#fff;border:1px solid var(--line);box-shadow:var(--shadow);font-size:14px;font-weight:600;opacity:0;pointer-events:none;transition:all .25s}",
     ".yo-toast.is-on{opacity:1;transform:translate(-50%,0)}",
     ".yo-toast.is-bad{border-color:rgba(212,60,100,.4);color:#b02a50}"
   ].join("\n") }));
