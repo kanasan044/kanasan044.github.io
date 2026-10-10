@@ -335,12 +335,25 @@
     }).join("");
   }
 
+  // Profile tags chosen with buttons (stored as keys, shown in the page's language). Also used by the editors.
+  var TAGS = [
+    ["speaks_ja", "#日本語できます", "#일본어 가능"], ["speaks_ko", "#韓国語できます", "#한국어 가능"],
+    ["learning_ja", "#日本語勉強中", "#일본어 공부 중"], ["learning_ko", "#韓国語勉強中", "#한국어 공부 중"],
+    ["english", "#英語もOK", "#영어도 OK"], ["friendly", "#フレンドリー", "#친근해요"],
+    ["beginner", "#初心者歓迎", "#초보자 환영"], ["listen", "#聞き専OK", "#듣기만 해도 OK"],
+    ["event", "#イベント好き", "#이벤트 좋아해요"], ["night", "#夜によくいます", "#밤에 자주 있어요"],
+    ["pc", "#PC", "#PC"], ["quest", "#Quest", "#Quest"]
+  ];
+  function tagLabel(key) { var t = TAGS.filter(function (x) { return x[0] === key; })[0]; return t ? t[lang === "ko" ? 2 : 1] : ""; }
   function person(p, role) {
-    var img = safeUrl(p.image), name = String(p.name || "").trim(), bio = pick(p, "bio");
+    // A single 自己紹介 (bio) written by the person comes first; older entries have bio_ja / bio_ko.
+    var img = safeUrl(p.image), name = String(p.name || "").trim(), bio = String(p.bio || "").trim() || pick(p, "bio");
+    var tags = (Array.isArray(p.tags) ? p.tags : []).map(tagLabel).filter(Boolean);
     var initial = name ? Array.from(name)[0] : "?";
     return '<article class="person"><div class="avatar">' +
       (img ? '<img src="' + esc(img) + '" alt="" loading="lazy">' : esc(initial)) + "</div><div>" +
       '<div class="person__name">' + esc(name) + "</div>" + (role ? '<div class="person__role">' + esc(role) + "</div>" : "") +
+      (tags.length ? '<div class="person__tags">' + tags.map(function (x) { return "<span>" + esc(x) + "</span>"; }).join("") + "</div>" : "") +
       (bio ? '<p class="person__bio">' + esc(bio) + "</p>" : "") + "</div></article>";
   }
   function renderTeam() {
@@ -404,7 +417,8 @@
     rerender: renderAll,
     staffApi: staffApi,
     startLogin: startStaffLogin,
-    loadScript: function (src) { loadScript(src + "?v=" + BUST); }
+    tags: TAGS,
+    loadScript: function (src, done) { loadScript(src + "?v=" + BUST, done); }
   };
 
   document.querySelectorAll(".lang button").forEach(function (b) {
