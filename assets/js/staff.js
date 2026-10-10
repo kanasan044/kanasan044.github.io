@@ -22,9 +22,15 @@
     failed: ["うまくいきませんでした", "처리하지 못했습니다"],
     welcome: ["ログインしました", "로그인했습니다"],
     notMember: ["この Discord アカウントは、まだ名簿に登録されていません", "이 Discord 계정은 아직 명단에 등록되어 있지 않습니다"],
-    notMemberHelp: ["運営（かなさん）に、下の Discord ユーザー名を伝えてください。登録されたら、もう一度ログインしてください。", "운영자(카나상)에게 아래 Discord 사용자 이름을 알려 주세요. 등록된 후 다시 로그인해 주세요."],
+    notMemberHelp: ["運営（かなさん）から届く「招待リンク」を開いて登録してください。", "운영자(카나상)에게 받은 '초대 링크'를 열어 등록해 주세요."],
     expired: ["ログインの期限が切れました。もう一度ログインしてください。", "로그인이 만료되었습니다. 다시 로그인해 주세요."],
     cancelled: ["ログインをやめました", "로그인을 취소했습니다"],
+    invite_expired: ["この招待リンクは期限切れか、使えなくなっています。かなさんに新しいリンクをもらってください。", "이 초대 링크는 만료되었거나 사용할 수 없습니다. 운영자(카나상)에게 새 링크를 받아 주세요."],
+    invite_used: ["この招待リンクはもう使われています。かなさんに新しいリンクをもらってください。", "이 초대 링크는 이미 사용되었습니다. 운영자(카나상)에게 새 링크를 받아 주세요."],
+    joined: ["登録が完了しました。ようこそ！", "등록이 완료되었습니다. 환영합니다!"],
+    inviteTitle: ["YORIMICHI スタッフ登録", "YORIMICHI 스태프 등록"],
+    inviteBody: ["Discord でログインすると、登録が完了します。次からはサイトのいちばん下の「スタッフログイン」からログインできます。", "Discord로 로그인하면 등록이 완료됩니다. 다음부터는 사이트 맨 아래의 '스태프 로그인'으로 로그인할 수 있습니다."],
+    inviteBtn: ["Discord でログインして登録", "Discord로 로그인하여 등록"],
     date: ["日付", "날짜"], start: ["開始", "시작"], end: ["終了", "종료"], type: ["種類", "종류"],
     title_ja: ["タイトル（日本語）", "제목（일본어）"], title_ko: ["タイトル（韓国語）", "제목（한국어）"],
     desc_ja: ["説明（日本語）", "설명（일본어）"], desc_ko: ["説明（韓国語）", "설명（한국어）"],
@@ -79,7 +85,22 @@
     if (h.get("yo_error")) return { error: h.get("yo_error") };
     if (!expected || h.get("n") !== expected) return { error: "expired" };   // a login this page did not start
     try { localStorage.setItem(SESSION_KEY, h.get("yo_session")); } catch (e) { /* private window: works for this page only */ }
-    return { session: h.get("yo_session") };
+    return { session: h.get("yo_session"), joined: h.has("yo_joined") };
+  }
+
+  // Opened an invite link (…?invite=…): explain, then log in with Discord carrying the invite.
+  function showInvite(invite) {
+    var both = function (k) { return [$("p", { class: "yo-muted", text: L[k][0] }), $("p", { class: "yo-muted", text: L[k][1] })]; };
+    var box = $("div", { class: "yo-modal yo-ui", role: "dialog", "aria-modal": "true" }, [
+      $("div", { class: "yo-modal__card" }, [
+        $("p", { class: "yo-eyebrow", text: "WELCOME" }),
+        $("h2", { text: L.inviteTitle[0] + " / " + L.inviteTitle[1] })
+      ].concat(both("inviteBody"), [
+        $("button", { class: "yo-btn yo-btn--primary", type: "button", text: L.inviteBtn[0] + " / " + L.inviteBtn[1], on: { click: function () { SITE.startLogin(invite); } } }),
+        $("button", { class: "yo-btn", type: "button", text: L.close[0] + " / " + L.close[1], on: { click: function () { box.remove(); } } })
+      ]))
+    ]);
+    document.body.appendChild(box);
   }
 
   // Show the latest schedule on the page right away (GitHub Pages needs a minute or two to catch up).
@@ -240,6 +261,8 @@
   /* ---------- start ---------- */
   (async function () {
     if (!API) return;
+    var invite = (location.search.match(/[?&]invite=([^&]+)/) || [])[1];
+    if (invite && !/yo_(session|error)=/.test(location.hash)) { showInvite(decodeURIComponent(invite)); return; }
     var result = takeLoginResult();
     if (result && result.error) { toast(L[result.error] ? t(result.error) : errText({ message: result.error }), false, true); return; }
     try { token = result ? result.session : localStorage.getItem(SESSION_KEY); } catch (e) { token = null; }
@@ -255,7 +278,7 @@
         return;
       }
       buildBar();
-      if (result) toast(t("welcome") + "：" + me.name);
+      if (result) toast((result.joined ? t("joined") : t("welcome")) + "：" + me.name);
       if (me.role === "teacher") apply((await call("GET", "/schedule")).schedule);
     } catch (e) {
       if (e.status === 401) { forget(); toast(t("expired"), false, true); }

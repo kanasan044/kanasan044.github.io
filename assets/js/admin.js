@@ -202,7 +202,12 @@
       if (peopleDirty()) await savePeople();
       // 3c) who may sign in (Discord accounts of teachers / staff)
       if (keysDirty()) {
+        // People may have registered through invite links meanwhile: apply only what was removed here to the latest list.
         var kf = await getFile(KEYS_PATH);
+        var latest = kf && kf.text ? (JSON.parse(kf.text).accounts || []) : [];
+        var same = function (a, b) { return a.name === b.name && a.h === b.h; };
+        var removed = JSON.parse(keysSaved).accounts.filter(function (a) { return !keys.accounts.some(function (b) { return same(a, b); }); });
+        keys.accounts = latest.filter(function (a) { return !removed.some(function (b) { return same(a, b); }); });
         await putFile(KEYS_PATH, toB64(JSON.stringify(keys, null, 2) + "\n"), "スタッフログインの Discord を更新", kf && kf.sha);
         keysSaved = JSON.stringify(keys);
       }
@@ -399,11 +404,27 @@
     settings: ["リンク・設定", settingsEditor],
     people: ["先生・運営スタッフ名簿", peopleEditor]
   };
-  /* Which Discord account each teacher / staff member signs in with. The repository is public, so only a SHA-256
-     of the Discord user name (or user ID) is saved, plus a short hint for this screen. */
-  async function sha256(s) {
-    var d = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(s));
-    return Array.from(new Uint8Array(d)).map(function (b) { return b.toString(16).padStart(2, "0"); }).join("");
+  /* Which Discord account each teacher / staff member signs in with. The person registers by opening an invite link
+     (made by the staff API) and logging in with Discord; only a SHA-256 of their Discord ID is saved. */
+  function showInviteLink(name, link) {
+    var msg = "YORIMICHI のスタッフ登録リンクです（7日間有効・1回だけ使えます）\nYORIMICHI 스태프 등록 링크입니다 (7일간 유효, 1회만 사용 가능)\n" + link;
+    var box = $("div", { class: "yo-modal yo-ui", role: "dialog", "aria-modal": "true" }, [
+      $("div", { class: "yo-modal__card" }, [
+        $("p", { class: "yo-eyebrow", text: "INVITE" }),
+        $("h2", { text: name + " さんの招待リンク" }),
+        $("textarea", { class: "yo-input", rows: "5", readonly: "readonly" }),
+        $("p", { class: "yo-muted", text: "この文をコピーして、本人にだけ Discord の個別メッセージで送ってください。本人がリンクを開いて「Discord でログインして登録」を押すと、登録が終わります。" }),
+        $("div", { class: "yo-row" }, [
+          $("button", { class: "yo-btn", type: "button", text: "コピー", on: { click: function (e) {
+            var btn = e.currentTarget;
+            navigator.clipboard.writeText(msg).then(function () { btn.textContent = "コピーしました"; }, function () { btn.textContent = "手でコピーしてください"; });
+          } } }),
+          $("button", { class: "yo-btn yo-btn--primary", type: "button", text: "閉じる", on: { click: function () { box.remove(); } } })
+        ])
+      ])
+    ]);
+    box.querySelector("textarea").value = msg;
+    document.body.appendChild(box);
   }
   function discordField(item) {
     var wrap = $("div", { class: "yo-field" });
@@ -411,32 +432,29 @@
       wrap.innerHTML = "";
       var name = String(item.name || "").trim();
       var acc = keys.accounts.filter(function (a) { return a.name === name; })[0];
-      wrap.appendChild($("span", { text: "ログインに使う Discord（ユーザー名）" }));
-      if (acc) {
-        wrap.appendChild($("div", { class: "yo-row" }, [
-          $("span", { class: "yo-muted", text: "登録済み：" + acc.hint + "（" + acc.set + "）" }),
-          $("button", { class: "yo-btn yo-btn--sm yo-btn--danger", type: "button", text: "外す", on: { click: function () {
-            if (!confirm(name + " さんの Discord ログインを外しますか？（保存するとログインできなくなります）")) return;
-            keys.accounts = keys.accounts.filter(function (a) { return a !== acc; });
-            changed(true); draw();
-          } } })
-        ]));
-        return;
-      }
-      var input = $("input", { class: "yo-input", type: "text", placeholder: "例：kanasan044（@ は不要）", autocomplete: "off" });
-      wrap.appendChild($("div", { class: "yo-row" }, [input,
-        $("button", { class: "yo-btn yo-btn--sm yo-nowrap", type: "button", text: "登録", on: { click: async function () {
-          var v = input.value.trim().replace(/^@/, "").toLowerCase();
+      wrap.appendChild($("span", { text: "サイトへのログイン（Discord）" }));
+      wrap.appendChild($("div", { class: "yo-row" }, [
+        $("span", { class: "yo-muted", text: acc ? "登録済み：" + acc.hint + "（" + acc.set + "）" : "未登録" }),
+        $("button", { class: "yo-btn yo-btn--sm yo-nowrap", type: "button", text: acc ? "招待リンクを作り直す" : "招待リンクをコピー", on: { click: async function (e) {
+          var btn = e.currentTarget;
           name = String(item.name || "").trim();   // the name may have been typed after this field was drawn
           if (!name) { toast("先に VRChat の表示名を書いてください", false, true); return; }
-          if (!v) return;
-          if (!/^\d{15,22}$/.test(v) && !/^[a-z0-9_.]{2,32}$/.test(v)) { toast("Discord のユーザー名は、英小文字・数字・_ と . だけです（表示名ではなくユーザー名を入れてください）", false, true); return; }
-          keys.accounts = keys.accounts.filter(function (a) { return a.name !== name; });
-          keys.accounts.push({ name: name, h: await sha256("discord:" + v), hint: "@" + v.slice(0, 2) + "…", set: jstStamp().slice(0, 10) });
+          if (peopleDirty()) { toast("先に「保存して公開」を押してから、招待リンクを作ってください", false, true); return; }
+          btn.disabled = true;
+          try {
+            var res = await api("/admin/invite", { method: "POST", body: { name: name } });
+            showInviteLink(name, location.origin + "/?invite=" + encodeURIComponent(res.token));
+          } catch (err) {
+            toast(err.message === "save_first" ? "先に「保存して公開」を押してから、招待リンクを作ってください" : "招待リンクを作れませんでした：" + err.message, false, true);
+          }
+          btn.disabled = false;
+        } } }),
+        acc ? $("button", { class: "yo-btn yo-btn--sm yo-btn--danger yo-nowrap", type: "button", text: "外す", on: { click: function () {
+          if (!confirm(name + " さんの Discord ログインを外しますか？（保存するとログインできなくなります）")) return;
+          keys.accounts = keys.accounts.filter(function (a) { return a !== acc; });
           changed(true); draw();
-        } } })
+        } } }) : null
       ]));
-      wrap.appendChild($("span", { class: "yo-muted", text: "Discord の「ユーザー名」（プロフィールの @ の後ろ）です。表示名ではありません。" }));
     }
     draw();
     return wrap;
@@ -448,7 +466,8 @@
     var blank = { name: "", bio_ja: "", bio_ko: "", image: "", show: true };
     box.appendChild($("div", { class: "yo-note" }, [
       $("strong", { text: "ここに書いた人が、ワールドで役職を持ちます。" }),
-      $("span", { text: "先生：教室の鍵をかけられる／運営スタッフ：鍵のかかった教室にも入れる。保存してから数分でワールドにも反映されます（ワールドにいる人は最大5分ほど）。「サイトに表示しない」にしても役職はそのままです。" })
+      $("span", { text: "先生：教室の鍵をかけられる／運営スタッフ：鍵のかかった教室にも入れる。保存してから数分でワールドにも反映されます（ワールドにいる人は最大5分ほど）。「サイトに表示しない」にしても役職はそのままです。" }),
+      $("span", { text: "サイトにログインしてもらうには：名前を書いて「保存して公開」→「招待リンクをコピー」→ 本人に Discord で送る。" })
     ]));
     box.appendChild($("h3", { class: "yo-section", text: "先生" }));
     box.appendChild(listEditor("先生", function () { return people.teachers; }, Object.assign({ lang_ja: "", lang_ko: "" }, blank),
@@ -488,7 +507,15 @@
       b("予定", function () { openPanel("schedule"); }),
       b("お知らせ", function () { openPanel("news"); }),
       b("質問", function () { openPanel("faq"); }),
-      b("名簿", function () { if (people) openPanel("people"); }),
+      b("名簿", async function () {
+        if (!people) return;
+        // Pick up people who registered through an invite link since this page was opened.
+        if (!keysDirty()) {
+          try { var kf = await getFile(KEYS_PATH); keys = kf && kf.text ? JSON.parse(kf.text) : { accounts: [] }; if (!keys.accounts) keys.accounts = []; keysSaved = JSON.stringify(keys); }
+          catch (e) { /* show what we have */ }
+        }
+        openPanel("people");
+      }),
       b("リンク・設定", function () { openPanel("settings"); }),
       b("保存済み", save, { "data-save": "1", class: "yo-bar__save" }),
       b("ログアウト", logout, { class: "yo-bar__ghost" })

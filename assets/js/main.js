@@ -235,11 +235,12 @@
   var DEFAULT_STAFF_API = "https://yorimichi-api.soluto484.workers.dev";
   function staffApi() { return String(S.staff_api || DEFAULT_STAFF_API).trim().replace(/\/+$/, ""); }
   function hasSession() { try { return !!localStorage.getItem(SESSION_KEY); } catch (e) { return false; } }
-  function startStaffLogin() {
+  function startStaffLogin(invite) {
     var api = staffApi(); if (!api) return;
     var n = Array.from(crypto.getRandomValues(new Uint8Array(12)), function (b) { return b.toString(16).padStart(2, "0"); }).join("");
     try { sessionStorage.setItem("yorimichi-login-n", n); } catch (e) { /* ignore */ }
-    location.href = api + "/login?n=" + n + "&r=" + encodeURIComponent(location.origin + location.pathname + location.search);
+    var back = location.origin + location.pathname + location.search.replace(/[?&](invite|admin)=?[^&]*/g, "").replace(/^&/, "?");
+    location.href = api + "/login?n=" + n + "&r=" + encodeURIComponent(back) + (typeof invite === "string" && invite ? "&i=" + encodeURIComponent(invite) : "");
   }
 
   /* ---------- text, links, images ---------- */
@@ -402,6 +403,7 @@
     defaults: function () { return DEFAULT_T; },
     rerender: renderAll,
     staffApi: staffApi,
+    startLogin: startStaffLogin,
     loadScript: function (src) { loadScript(src + "?v=" + BUST); }
   };
 
@@ -440,9 +442,9 @@
 
   // Editing tools are only downloaded for someone signed in on this browser (or just coming back from the Discord
   // login). staff.js asks the staff API who it is and loads the admin editor for the admin.
-  if (hasSession() || /[#&]yo_(session|error)=/.test(location.hash)) loadScript("assets/js/staff.js?v=" + BUST);
+  if (hasSession() || /[#&]yo_(session|error)=/.test(location.hash) || /[?&]invite=/.test(location.search)) loadScript("assets/js/staff.js?v=" + BUST);
   else if (/[?&]admin\b/.test(location.search)) startStaffLogin();   // old bookmark: go straight to the login
-  el("staff-login").addEventListener("click", startStaffLogin);
+  el("staff-login").addEventListener("click", function () { startStaffLogin(); });
   }
 
   /* ---------- load data, then start ---------- */
