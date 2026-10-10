@@ -8,7 +8,7 @@ window.YORIMICHI_CONTENT = {
     "group_url": "",
     "discord_url": "",
     "x_url": "",
-    "staff_page_url": "a",
+    "staff_page_url": "",
     "announcement_ja": "",
     "announcement_ko": "",
     "hero_image": "",
