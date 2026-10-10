@@ -28,7 +28,9 @@
     min30: ["30分", "30분"], h1: ["1時間", "1시간"], h15: ["1.5時間", "1.5시간"], h2: ["2時間", "2시간"],
     lesson: ["授業", "수업"], event: ["イベント", "이벤트"],
     place: ["場所", "장소"], placeOther: ["その他の場所", "기타 장소"],
-    cat: ["内容", "내용"], host: ["担当の先生", "담당 선생님"], hostOther: ["名前を入力", "이름 입력"],
+    cat: ["内容", "내용"], gStudy: ["学習・会話", "학습·회화"], gLevel: ["レベル別", "레벨별"], gJlpt: ["JLPT", "JLPT"], gEvent: ["イベント", "이벤트"], gOther: ["その他", "기타"],
+    ownTitle: ["内容を入力（例：日本の音楽を聴こう）", "내용 입력（예: 일본 음악 듣기）"],
+    needOwn: ["「その他」の内容を入力してください", "'기타' 내용을 입력해 주세요"], host: ["担当の先生", "담당 선생님"], hostOther: ["名前を入力", "이름 입력"],
     desc: ["説明（任意）", "설명（선택）"],
     repeat: ["くり返し", "반복"], once: ["1回だけ", "1회만"], weekly: ["毎週・{n}回", "매주·{n}회"],
     add: ["予定を追加", "일정 추가"], addN: ["{n}件の予定を追加", "일정 {n}개 추가"], saveEdit: ["変更を保存", "변경 저장"], cancel: ["やめる", "취소"],
@@ -46,7 +48,8 @@
     { cat: "ko_study", start: "21:00", dur: 60, place: "1-2" },
     { cat: "exchange", start: "22:00", dur: 60, place: "中央広場" }
   ];
-  var PLACES = ["1-1", "1-2", "1-3", "1-4", "1-5", "1-6", "中央広場"];
+  var GROUPS = { study: "gStudy", level: "gLevel", jlpt: "gJlpt", event: "gEvent", other: "gOther" };
+  var PLACES =["1-1", "1-2", "1-3", "1-4", "1-5", "1-6", "中央広場"];
   var STARTS = ["19:00", "20:00", "20:30", "21:00", "21:30", "22:00"];
   var DURS = [[30, "min30"], [60, "h1"], [90, "h15"], [120, "h2"]];
 
@@ -81,8 +84,20 @@
     var CATS = opts.cats || [];
     var catOf = function (key) { return CATS.filter(function (c) { return c[0] === key; })[0]; };
     // Choosing 内容 fills in both titles and 授業／イベント.
-    function setCat(d, key) { var c = catOf(key); if (!c) return; d.cat = key; d.title_ja = c[1]; d.title_ko = c[2]; d.type = c[3]; }
-    function titleOf(x) { var c = catOf(x.cat); return c ? c[ko() ? 2 : 1] : (ko() ? x.title_ko || x.title_ja : x.title_ja || x.title_ko) || ""; }
+    // その他 ("other"): the title is typed (one field for both languages) and 授業／イベント is chosen.
+    function setCat(d, key) {
+      var c = catOf(key); if (!c) return;
+      if (key === "other") {
+        if (d.cat !== "other") { d.title_ja = ""; d.title_ko = ""; }
+        d.cat = key; if (d.type !== "イベント") d.type = "授業";
+        return;
+      }
+      d.cat = key; d.title_ja = c[1]; d.title_ko = c[2]; d.type = c[3];
+    }
+    function titleOf(x) {
+      var c = x.cat !== "other" && catOf(x.cat);
+      return c ? c[ko() ? 2 : 1] : (ko() ? x.title_ko || x.title_ja : x.title_ja || x.title_ko) || "";
+    }
 
     function myTemplates() {
       if (opts.saveTemplate) return [];
@@ -92,9 +107,9 @@
     function blank(date) { return { date: date || "", start: "21:00", end: "22:00", type: "授業", cat: "", title_ja: "", title_ko: "", desc: "", host: opts.host || "", place: "" }; }
     function fromTemplate(tp, date) {
       var d = blank(date);
+      if (tp.cat) setCat(d, tp.cat);   // first, so an その他 template keeps its typed title below
       ["title_ja", "title_ko", "type", "place", "host", "desc"].forEach(function (k) { if (tp[k]) d[k] = tp[k]; });
       if (!d.desc && (tp.desc_ja || tp.desc_ko)) d.desc = tp.desc_ja || tp.desc_ko;
-      if (tp.cat) setCat(d, tp.cat);
       d.start = tp.start || d.start; d.end = fromMin(toMin(d.start) + (tp.dur || 60));
       if (!d.host) d.host = opts.host || "";
       return d;
@@ -211,10 +226,27 @@
       var hostIn = input(d, "host");
       hostIn.placeholder = t("hostOther");
       var hosts = (opts.hosts ? opts.hosts() : []).filter(Boolean);
-      var catChips = $("div", { class: "yo-se__chips" }, CATS.map(function (c) {
+      // 内容 buttons, under a small heading per group (学習・会話 / レベル別 / JLPT / イベント).
+      var catBtn = function (c) {
         return $("button", { type: "button", class: "yo-se__chip yo-se__chip--cat" + (c[3] === "イベント" ? " is-event" : "") + (d.cat === c[0] ? " is-on" : ""),
           text: c[ko() ? 2 : 1], on: { click: function () { setCat(d, c[0]); draw(true); } } });
+      };
+      var groups = [];
+      CATS.forEach(function (c) { var g = c[4] || ""; if (groups.indexOf(g) < 0) groups.push(g); });
+      var catChips = $("div", { class: "yo-se__catgroups" }, groups.map(function (g) {
+        return $("div", { class: "yo-se__catgroup" }, [
+          GROUPS[g] ? $("span", { class: "yo-se__catlabel", text: t(GROUPS[g]) }) : null,
+          $("div", { class: "yo-se__chips" }, CATS.filter(function (c) { return (c[4] || "") === g; }).map(catBtn))
+        ]);
       }));
+      if (d.cat === "other") {
+        var own = $("input", { class: "yo-input", type: "text", maxlength: "60", placeholder: t("ownTitle") });
+        own.value = d.title_ja || "";
+        own.addEventListener("input", function () { d.title_ja = d.title_ko = own.value; });
+        catChips.appendChild($("div", { class: "yo-se__own" }, [own,
+          chips([["授業", "lesson"], ["イベント", "event"]], d.type, "type", function (v) { d.type = v; draw(true); })]));
+        setTimeout(function () { if (!own.value) own.focus(); }, 0);
+      }
       clashBox = $("p", { class: "yo-se__clash", hidden: "hidden" });
       var weeksSel = $("select", { class: "yo-input" });
       [1, 2, 4, 8, 12].forEach(function (n) { weeksSel.appendChild($("option", { value: String(n), text: n === 1 ? t("once") : t("weekly", { n: n }) })); });
@@ -224,6 +256,7 @@
       mainBtn.addEventListener("click", async function () {
         if (!d.date) { toast(t("needDate"), true); return; }
         if (!d.cat && !String(d.title_ja || "").trim() && !String(d.title_ko || "").trim()) { toast(t("needTitle"), true); return; }
+        if (d.cat === "other" && !String(d.title_ja || "").trim()) { toast(t("needOwn"), true); return; }
         mainBtn.disabled = true;
         try {
           if (isNew) {
@@ -244,7 +277,7 @@
           $("button", { type: "button", class: "yo-btn yo-btn--sm", text: t("cancel"), on: { click: function () { form = null; draw(); } } })
         ]),
         field("date", input(d, "date", "date")),
-        $("div", { class: "yo-field" }, [$("span", { text: t("cat") + (d.cat || d.title_ja ? "（" + titleOf(d) + " ・ " + t(d.type === "イベント" ? "event" : "lesson") + "）" : "") }), catChips]),
+        $("div", { class: "yo-field" }, [$("span", { text: t("cat") + (d.cat || d.title_ja ? "（" + (d.cat === "other" ? t("gOther") : titleOf(d)) + " ・ " + t(d.type === "イベント" ? "event" : "lesson") + "）" : "") }), catChips]),
         $("div", { class: "yo-field" }, [$("span", { text: t("start") + "（" + d.start + "）" }), chips(STARTS, d.start, "start", setStart), input(d, "start", "time")]),
         $("div", { class: "yo-field" }, [$("span", { text: t("length") + "（" + t("end") + " " + d.end + "）" }), chips(DURS, dur, "length", setDur)]),
         $("div", { class: "yo-field" }, [$("span", { text: t("place") }), chips(PLACES, d.place, "place", function (v) { d.place = v; draw(true); }), placeIn]),
@@ -343,6 +376,9 @@
     ".yo-se__chips{display:flex;flex-wrap:wrap;gap:5px}",
     ".yo-se__chip{padding:6px 11px;border:1px solid var(--line);border-radius:999px;background:#fff;font:inherit;font-size:13px;font-weight:700;color:var(--ink);cursor:pointer}",
     ".yo-se__chip:hover{border-color:var(--accent)}.yo-se__chip.is-on{background:var(--accent);border-color:var(--accent);color:#fff}",
+    ".yo-se__own{display:grid;gap:6px;padding:10px;border-radius:12px;background:var(--soft)}",
+    ".yo-se__catgroups{display:grid;gap:8px}.yo-se__catgroup{display:grid;gap:4px}",
+    ".yo-se__catlabel{font-size:11px;font-weight:800;color:var(--muted);letter-spacing:.04em}",
     ".yo-se__chip--cat.is-event:not(.is-on){border-color:rgba(255,107,139,.45)}.yo-se__chip--cat.is-event.is-on{background:#e8537a;border-color:#e8537a}",
     ".yo-se__more summary{cursor:pointer;font-size:12.5px;font-weight:700;color:var(--muted);padding:2px 0}.yo-se__more[open]{display:grid;gap:8px}",
     ".yo-se__clash{margin:0;padding:8px 10px;border-radius:10px;background:#fff4e5;color:#9a5b00;font-size:12.5px;font-weight:700}",

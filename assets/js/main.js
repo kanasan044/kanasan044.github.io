@@ -370,11 +370,22 @@
     ["pc", "#PC", "#PC"], ["quest", "#Quest", "#Quest"]
   ];
   // What an event is, chosen with a button (the title and 授業／イベント come from this). Same list in the staff API.
+  // [key, 日本語, 한국어, 授業|イベント, group] — the editor shows the buttons under a heading per group.
   var CATS = [
-    ["ja_study", "日本語学習", "일본어 학습", "授業"], ["ko_study", "韓国語学習", "한국어 학습", "授業"],
-    ["ja_talk", "日本語会話", "일본어 회화", "授業"], ["ko_talk", "韓国語会話", "한국어 회화", "授業"],
-    ["exchange", "日韓交流会", "한일 교류회", "イベント"], ["culture", "文化紹介", "문화 소개", "イベント"],
-    ["game", "ゲーム・遊び", "게임·놀이", "イベント"], ["event", "イベント", "이벤트", "イベント"]
+    ["ja_study", "日本語学習", "일본어 학습", "授業", "study"], ["ko_study", "韓国語学習", "한국어 학습", "授業", "study"],
+    ["ja_talk", "日本語会話", "일본어 회화", "授業", "study"], ["ko_talk", "韓国語会話", "한국어 회화", "授業", "study"],
+    ["ja_easy", "やさしい日本語", "쉬운 일본어", "授業", "study"], ["ko_easy", "やさしい韓国語", "쉬운 한국어", "授業", "study"],
+    ["ja_beginner", "日本語 初級", "일본어 초급", "授業", "level"], ["ja_middle", "日本語 中級", "일본어 중급", "授業", "level"],
+    ["ja_advanced", "日本語 上級", "일본어 고급", "授業", "level"],
+    ["ko_beginner", "韓国語 初級", "한국어 초급", "授業", "level"], ["ko_middle", "韓国語 中級", "한국어 중급", "授業", "level"],
+    ["ko_advanced", "韓国語 上級", "한국어 고급", "授業", "level"],
+    ["jlpt_n1", "JLPT N1", "JLPT N1", "授業", "jlpt"], ["jlpt_n2", "JLPT N2", "JLPT N2", "授業", "jlpt"],
+    ["jlpt_n3", "JLPT N3", "JLPT N3", "授業", "jlpt"], ["jlpt_n4", "JLPT N4", "JLPT N4", "授業", "jlpt"],
+    ["jlpt_n5", "JLPT N5", "JLPT N5", "授業", "jlpt"],
+    ["exchange", "日韓交流会", "한일 교류회", "イベント", "event"], ["culture", "文化紹介", "문화 소개", "イベント", "event"],
+    ["game", "ゲーム・遊び", "게임·놀이", "イベント", "event"], ["event", "イベント", "이벤트", "イベント", "event"],
+    // その他: the title is typed (one field, shown in both languages) and 授業／イベント is chosen.
+    ["other", "その他（自分で入力）", "기타（직접 입력）", "", "other"]
   ];
   function tagLabel(key) { var t = TAGS.filter(function (x) { return x[0] === key; })[0]; return t ? t[lang === "ko" ? 2 : 1] : ""; }
   function person(p, role, founder) {
