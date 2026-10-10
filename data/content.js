@@ -196,6 +196,19 @@ window.YORIMICHI_CONTENT = {
   },
   "schedule": [
     {
+      "date": "2026-10-10",
+      "start": "19:00",
+      "end": "20:00",
+      "type": "イベント",
+      "cat": "exchange",
+      "title_ja": "日韓交流会",
+      "title_ko": "한일 교류회",
+      "desc": "a",
+      "host": "a",
+      "place": "中央広場",
+      "id": "amv2dwrw82a0w"
+    },
+    {
       "date": "2026-10-18",
       "start": "21:00",
       "end": "22:00",
