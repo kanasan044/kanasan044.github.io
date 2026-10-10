@@ -232,7 +232,8 @@
 
   /* ---------- staff login (Discord, through the staff API) ---------- */
   var SESSION_KEY = "yorimichi-session";
-  function staffApi() { return String(S.staff_api || "").trim().replace(/\/+$/, ""); }
+  var DEFAULT_STAFF_API = "https://yorimichi-api.soluto484.workers.dev";
+  function staffApi() { return String(S.staff_api || DEFAULT_STAFF_API).trim().replace(/\/+$/, ""); }
   function hasSession() { try { return !!localStorage.getItem(SESSION_KEY); } catch (e) { return false; } }
   function startStaffLogin() {
     var api = staffApi(); if (!api) return;
@@ -399,7 +400,9 @@
     getLang: function () { return lang; },
     setContent: setContent,
     defaults: function () { return DEFAULT_T; },
-    rerender: renderAll
+    rerender: renderAll,
+    staffApi: staffApi,
+    loadScript: function (src) { loadScript(src + "?v=" + BUST); }
   };
 
   document.querySelectorAll(".lang button").forEach(function (b) {
@@ -435,14 +438,10 @@
     document.querySelectorAll(".reveal").forEach(function (n) { n.classList.add("is-in"); });
   }
 
-  // The editor is only downloaded for someone who has signed in on this browser (or opens the page with ?admin).
-  var signedIn = false;
-  try { signedIn = !!localStorage.getItem("yorimichi-gh-token"); } catch (e) { /* ignore */ }
-  if (signedIn || /[?&]admin\b/.test(location.search)) loadScript("assets/js/admin.js?v=" + BUST);
-  else if (hasSession() || /[#&]yo_(session|error)=/.test(location.hash)) {
-    // Teachers / staff signed in with Discord (or just coming back from the Discord login).
-    loadScript("assets/js/staff.js?v=" + BUST);
-  }
+  // Editing tools are only downloaded for someone signed in on this browser (or just coming back from the Discord
+  // login). staff.js asks the staff API who it is and loads the admin editor for the admin.
+  if (hasSession() || /[#&]yo_(session|error)=/.test(location.hash)) loadScript("assets/js/staff.js?v=" + BUST);
+  else if (/[?&]admin\b/.test(location.search)) startStaffLogin();   // old bookmark: go straight to the login
   el("staff-login").addEventListener("click", startStaffLogin);
   }
 

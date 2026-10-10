@@ -7,7 +7,7 @@
   var SESSION_KEY = "yorimichi-session", NONCE_KEY = "yorimichi-login-n";
   var SITE = window.YORIMICHI_SITE;
   if (!SITE) return;
-  var API = String(((window.YORIMICHI_CONTENT || {}).settings || {}).staff_api || "").trim().replace(/\/+$/, "");
+  var API = SITE.staffApi();
   var token = null, me = null, schedule = [];
 
   // Japanese / Korean pairs for every label (members may read either).
@@ -98,6 +98,7 @@
         $("h2", { text: t("notMember") }),
         $("p", { class: "yo-muted", text: t("notMemberHelp") }),
         $("p", { class: "yo-code", text: "@" + (body.username || "") }),
+        $("p", { class: "yo-muted", text: "Discord ID：" + (body.id || "") }),
         $("button", { class: "yo-btn yo-btn--primary", type: "button", text: t("close"), on: { click: function () { box.remove(); } } })
       ])
     ]);
@@ -245,6 +246,14 @@
     if (!token) return;
     try {
       me = await call("GET", "/me");
+      if (me.role === "admin") {
+        // The admin gets the full editor (its own toolbar); hand over this session.
+        window.YORIMICHI_SESSION = token;
+        SITE.loadScript("assets/js/admin.js");
+        if (result) toast(t("welcome") + "：" + me.name);
+        var lb = document.getElementById("staff-login"); if (lb) lb.hidden = true;
+        return;
+      }
       buildBar();
       if (result) toast(t("welcome") + "：" + me.name);
       if (me.role === "teacher") apply((await call("GET", "/schedule")).schedule);

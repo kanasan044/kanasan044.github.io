@@ -1,20 +1,19 @@
 /* YORIMICHI in-site editor (admins only).
-   Loaded by main.js only when this browser has signed in (or the page was opened with ?admin).
-   Sign-in = a GitHub fine-grained token for the site repository, kept only in this browser. The token's user must
-   be listed in content.editors AND have write access to the repository, so nobody else can edit even if they open
-   ?admin. Saving commits data/content.js (and uploaded pictures / CNAME) straight to the repository.
-   The roster (先生・運営スタッフ) is saved to data/people.js for the site and roster.json for the VRChat world. */
+   Loaded by staff.js only after the staff API says the Discord account signed in on this browser is an admin
+   (ADMIN_DISCORD_IDS on Cloudflare). Saving goes through the staff API, which commits only the allowed files:
+   data/content.js, uploaded pictures and CNAME, plus the roster (data/people.js for the site, roster.json for the
+   VRChat world) and data/staff-logins.json (who may sign in). */
 (function () {
   "use strict";
 
-  var REPO = { owner: "kanasan044", repo: "kanasan044.github.io", branch: "main" };
-  var TOKEN_KEY = "yorimichi-gh-token";
+  var SESSION_KEY = "yorimichi-session";
   var CONTENT_PATH = "data/content.js";
   var CONTENT_HEAD = "/* サイト内の「編集」から保存されるファイルです。 */\nwindow.YORIMICHI_CONTENT = ";
   var PEOPLE_PATH = "data/people.js", ROSTER_PATH = "roster.json";
   var PEOPLE_HEAD = "/* サイト内の「名簿」から保存されるファイルです。 */\nwindow.YORIMICHI_PEOPLE = ";
   var SITE = window.YORIMICHI_SITE;
   if (!SITE) return;
+  var API = SITE.staffApi();
 
   var token = null, login = "", draft = null, saved = "", editing = false;
   var people = null, peopleSaved = "";   // roster draft (teachers / staff) and its last saved form
@@ -36,23 +35,21 @@
   }
   function clone(o) { return JSON.parse(JSON.stringify(o)); }
 
-  /* ---------- GitHub ---------- */
+  /* ---------- staff API (saves to GitHub for us) ---------- */
+  var ERRORS = { github_409: "ほかの画面で同時に保存されました。もう一度「保存して公開」を押してください",
+    not_signed_in: "ログインの期限が切れました。もう一度ログインしてください", admins_only: "このアカウントには編集の権限がありません" };
   async function api(path, opts) {
     opts = opts || {};
-    var r = await fetch("https://api.github.com" + path, {
+    var r = await fetch(API + path, {
       method: opts.method || "GET",
-      headers: { Authorization: "Bearer " + token, Accept: "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28" },
+      headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" },
       body: opts.body ? JSON.stringify(opts.body) : undefined,
       cache: "no-store"
     });
-    if (r.status === 404 && opts.allow404) return null;
-    if (!r.ok) {
-      var j = {}; try { j = await r.json(); } catch (e) { /* no body */ }
-      var err = new Error(j.message || ("HTTP " + r.status)); err.status = r.status; throw err;
-    }
-    return r.status === 204 ? null : r.json();
+    var j = {}; try { j = await r.json(); } catch (e) { /* no body */ }
+    if (!r.ok) { var err = new Error(ERRORS[j.error] || j.error || ("HTTP " + r.status)); err.status = r.status; throw err; }
+    return j;
   }
-  function contentsUrl(path) { return "/repos/" + REPO.owner + "/" + REPO.repo + "/contents/" + path; }
   function toB64(str) {
     var bytes = new TextEncoder().encode(str), bin = "";
     for (var i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
@@ -63,63 +60,25 @@
     return new TextDecoder().decode(Uint8Array.from(bin, function (c) { return c.charCodeAt(0); }));
   }
   async function getFile(path) {
-    var f = await api(contentsUrl(path) + "?ref=" + REPO.branch, { allow404: true });
-    return f ? { sha: f.sha, text: f.content ? fromB64(f.content) : "" } : null;
+    var f = await api("/admin/file?path=" + encodeURIComponent(path));
+    return f && !f.missing ? { sha: f.sha, text: f.content ? fromB64(f.content) : "" } : null;
   }
   async function putFile(path, b64, message, sha) {
-    var body = { message: message, content: b64, branch: REPO.branch };
-    if (sha) body.sha = sha;
-    return api(contentsUrl(path), { method: "PUT", body: body });
+    return api("/admin/file", { method: "PUT", body: { path: path, content: b64, message: message, sha: sha || undefined } });
+  }
+  async function deleteFile(path, message, sha) {
+    return api("/admin/file", { method: "DELETE", body: { path: path, message: message, sha: sha } });
   }
 
   async function verify() {
-    var me = await api("/user");
-    var editors = ((window.YORIMICHI_CONTENT || {}).editors || ["kanasan044"]).map(function (s) { return String(s).toLowerCase(); });
-    if (editors.indexOf(String(me.login).toLowerCase()) < 0) throw new Error("このアカウント（" + me.login + "）には編集の権限がありません");
-    var repo = await api("/repos/" + REPO.owner + "/" + REPO.repo);
-    if (!repo.permissions || !repo.permissions.push) throw new Error("このトークンではサイトに保存できません（書き込み権限がありません）");
-    return me.login;
-  }
-
-  /* ---------- sign-in ---------- */
-  function showLogin(message) {
-    var input = $("input", { type: "password", class: "yo-input", placeholder: "github_pat_…", autocomplete: "off" });
-    var err = $("p", { class: "yo-err", text: message || "" });
-    var btn = $("button", { class: "yo-btn yo-btn--primary", type: "button", text: "ログイン" });
-    var box = $("div", { class: "yo-modal yo-ui", role: "dialog", "aria-modal": "true" }, [
-      $("div", { class: "yo-modal__card" }, [
-        $("p", { class: "yo-eyebrow", text: "ADMIN" }),
-        $("h2", { text: "管理者ログイン" }),
-        $("p", { class: "yo-muted", text: "GitHub で作った「鍵（トークン）」を貼り付けてください。このブラウザにだけ保存され、他の人には編集ボタンは表示されません。" }),
-        input, err,
-        $("div", { class: "yo-row" }, [
-          $("button", { class: "yo-btn", type: "button", text: "閉じる", on: { click: function () { box.remove(); } } }),
-          btn
-        ]),
-        $("a", { class: "yo-link", href: "https://github.com/settings/personal-access-tokens/new", target: "_blank", rel: "noopener", text: "鍵（トークン）を作る →" })
-      ])
-    ]);
-    btn.addEventListener("click", async function () {
-      token = input.value.trim();
-      if (!token) return;
-      btn.disabled = true; err.textContent = "確認しています…";
-      try {
-        login = await verify();
-        try { localStorage.setItem(TOKEN_KEY, token); } catch (e) { /* private window: works until closed */ }
-        box.remove();
-        await ready();
-      } catch (e) {
-        token = null; btn.disabled = false;
-        err.textContent = e.status === 401 ? "鍵が正しくないか、期限が切れています" : e.message;
-      }
-    });
-    document.body.appendChild(box);
-    input.focus();
+    var me = await api("/me");
+    if (me.role !== "admin") { var err = new Error(ERRORS.admins_only); err.status = 403; throw err; }
+    return me.name;
   }
 
   function logout() {
     if (dirty() && !confirm("保存していない変更があります。ログアウトしますか？")) return;
-    try { localStorage.removeItem(TOKEN_KEY); } catch (e) { /* ignore */ }
+    try { localStorage.removeItem(SESSION_KEY); } catch (e) { /* ignore */ }
     location.href = location.pathname;
   }
 
@@ -241,7 +200,7 @@
       }
       // 3b) roster (site + world)
       if (peopleDirty()) await savePeople();
-      // 3c) teachers' login codes
+      // 3c) who may sign in (Discord accounts of teachers / staff)
       if (keysDirty()) {
         var kf = await getFile(KEYS_PATH);
         await putFile(KEYS_PATH, toB64(JSON.stringify(keys, null, 2) + "\n"), "スタッフログインの Discord を更新", kf && kf.sha);
@@ -252,7 +211,7 @@
       if (domain !== oldDomain) {
         var cname = await getFile("CNAME");
         if (domain) await putFile("CNAME", toB64(domain.replace(/^https?:\/\//, "").replace(/\/.*$/, "") + "\n"), "独自ドメインを設定", cname && cname.sha);
-        else if (cname) await api(contentsUrl("CNAME"), { method: "DELETE", body: { message: "独自ドメインを解除", sha: cname.sha, branch: REPO.branch } });
+        else if (cname) await deleteFile("CNAME", "独自ドメインを解除", cname.sha);
       }
       saved = JSON.stringify(draft);
       changed(true);
@@ -612,13 +571,15 @@
 
   /* ---------- start ---------- */
   (async function () {
-    try { token = localStorage.getItem(TOKEN_KEY); } catch (e) { token = null; }
-    if (!token) { showLogin(); return; }
+    // staff.js hands over the Discord session it just checked (also kept in localStorage for the next visit).
+    token = window.YORIMICHI_SESSION || null;
+    if (!token) { try { token = localStorage.getItem(SESSION_KEY); } catch (e) { token = null; } }
+    if (!token || !API) return;
     try { login = await verify(); await ready(); }
     catch (e) {
-      try { localStorage.removeItem(TOKEN_KEY); } catch (x) { /* ignore */ }
-      token = null;
-      if (/[?&]admin\b/.test(location.search)) showLogin(e.status === 401 ? "鍵の期限が切れました。もう一度ログインしてください。" : e.message);
+      // Sign out only when the login really expired; a network hiccup must not sign you out.
+      if (e.status === 401) { try { localStorage.removeItem(SESSION_KEY); } catch (x) { /* ignore */ } }
+      toast("編集の準備ができませんでした：" + e.message, false, true);
     }
   })();
 })();
