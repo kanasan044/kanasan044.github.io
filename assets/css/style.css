@@ -295,6 +295,8 @@ html[lang="ko"] .hero__title { letter-spacing: -.035em; }
 .footer__links a:hover { color: var(--accent); }
 .footer__staff { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border: 1px solid var(--line); border-radius: 999px; }
 .footer__staff svg { width: 15px; height: 15px; }
+.footer__login { padding: 6px 4px; border: 0; background: none; color: var(--muted); font: inherit; font-size: 12.5px; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+.footer__login:hover { color: var(--ink); }
 .footer__bottom { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-top: 40px; padding-top: 20px; border-top: 1px solid var(--line); color: var(--muted); }
 
 /* ---------- Sub pages ---------- */
