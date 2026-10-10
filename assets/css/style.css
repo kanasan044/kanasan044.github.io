@@ -105,6 +105,11 @@ p { margin: 0; }
 .btn--outline-light { border-color: rgba(255, 255, 255, .35); color: #fff; }
 .btn--outline-light:hover { background: rgba(255, 255, 255, .1); border-color: rgba(255, 255, 255, .6); }
 .btn.is-soon { opacity: .5; pointer-events: none; box-shadow: none; }
+.login-btn svg { width: 15px; height: 15px; flex: none; }
+.login-btn:hover svg { transform: none; }
+.login-btn.is-in { background: #fff; color: var(--ink); border-color: var(--line); max-width: 180px; }
+.login-btn.is-in .login-btn__text { overflow: hidden; text-overflow: ellipsis; color: #1f9d57; }
+.login-btn.is-in svg { display: none; }
 .btn.is-soon svg { display: none; }
 .btn.is-soon::after { content: "· " attr(data-soon); font-weight: 500; }
 
@@ -377,7 +382,9 @@ a.float-card:hover { box-shadow: 0 24px 46px -18px rgba(16, 24, 40, .45); }
 .no-js .reveal { opacity: 1; transform: none; }
 
 /* ---------- Responsive ---------- */
-@media (max-width: 1180px) {
+.nav a, .lang button { white-space: nowrap; }
+/* The header's 「グループに参加」 only where there is room (it is also on the home page and in the footer). */
+@media (max-width: 1480px) {
   .hide-md { display: none; }
 }
 @media (max-width: 1024px) {
@@ -394,7 +401,7 @@ a.float-card:hover { box-shadow: 0 24px 46px -18px rgba(16, 24, 40, .45); }
   .bento { grid-template-columns: 1fr 1fr; grid-auto-rows: 300px; }
   .join { grid-template-columns: 1fr; padding: 48px; }
 }
-@media (max-width: 1080px) {
+@media (max-width: 1180px) {
   .menu-btn { display: block; }
   .nav {
     position: fixed; inset: 68px 0 auto; flex-direction: column; gap: 0; padding: 12px 16px 20px;
@@ -430,6 +437,11 @@ a.float-card:hover { box-shadow: 0 24px 46px -18px rgba(16, 24, 40, .45); }
   .lang button { padding: 5px 10px; font-size: 12.5px; }
   .brand__name { font-size: 14px; }
   .header__inner { gap: 12px; }
+  .header__actions { gap: 6px; }
+  .login-btn { height: 38px; padding: 0 12px; }
+  .login-btn:not(.is-in) .login-btn__text { display: none; }   /* phone: lock icon only */
+  .login-btn:not(.is-in) { width: 38px; padding: 0; }
+  .login-btn.is-in { max-width: 110px; font-size: 12px; }
   .page-hero { padding: 56px 0 40px; }
   .footer__cols { gap: 40px; }
   .join { padding: 36px 24px; border-radius: 24px; }
