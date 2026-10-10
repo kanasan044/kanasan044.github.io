@@ -15,6 +15,7 @@
   if (!SITE) return;
   var API = SITE.staffApi();
 
+  var who = "", whoUser = "";
   var token = null, login = "", draft = null, saved = "", editing = false;
   var people = null, peopleSaved = "";   // roster draft (teachers / staff) and its last saved form
   var KEYS_PATH = "data/staff-logins.json";
@@ -73,6 +74,7 @@
   async function verify() {
     var me = await api("/me");
     if (me.role !== "admin") { var err = new Error(ERRORS.admins_only); err.status = 403; throw err; }
+    who = me.discord || ""; whoUser = me.username || "";   // the Discord account actually signed in, for the toolbar
     return me.name;
   }
 
@@ -117,6 +119,11 @@
     // Every event gets an id so teachers' changes can be merged with this draft on save.
     draft.schedule.forEach(function (x) { if (!x.id) { x.id = newId(); freshIds[x.id] = true; } });
     saved = JSON.stringify(draft);
+    await loadPeople();
+    SITE.setContent(view());
+  }
+  // The roster and who may sign in, fresh from the repository (also after approving someone).
+  async function loadPeople() {
     var kf = await getFile(KEYS_PATH);
     keys = kf && kf.text ? JSON.parse(kf.text) : { accounts: [] };
     if (!keys.accounts) keys.accounts = [];
@@ -125,7 +132,6 @@
     var po = pf && pf.text ? parseJs(pf.text) : (window.YORIMICHI_PEOPLE || {});
     people = { teachers: po.teachers || [], staff: po.staff || [] };
     peopleSaved = JSON.stringify(people);
-    SITE.setContent(view());
   }
 
   // Teachers may have added / changed / deleted their events (through the schedule API) since this page loaded.
@@ -149,6 +155,19 @@
     draft.schedule = out;
   }
 
+  // Three-way merge of a roster list by name: base = as loaded, mine = this page, remote = latest in the repository.
+  // An entry changed here wins; otherwise the latest version is kept. Additions on either side are kept; deletions here apply.
+  function mergeByName(base, mine, remote) {
+    var find = function (list, n) { return list.filter(function (x) { return x.name === n; })[0]; };
+    var same = function (a, b) { return JSON.stringify(a) === JSON.stringify(b); };
+    var out = mine.map(function (m) {
+      var b = find(base, m.name), r = find(remote, m.name);
+      return b && r && same(m, b) ? r : m;
+    });
+    remote.forEach(function (r) { if (!find(base, r.name) && !find(out, r.name)) out.push(r); });
+    return out;
+  }
+
   function jstStamp() { return new Date(Date.now() + 9 * 3600000).toISOString().slice(0, 16).replace("T", " "); }
   async function savePeople() {
     // Profile pictures chosen in the roster panel are still data URLs: upload them first.
@@ -164,6 +183,12 @@
     }
     var stamp = jstStamp();
     var cur = await getFile(PEOPLE_PATH);
+    // Approvals and members' own profile edits may have changed the list since this page loaded: keep them.
+    if (cur && cur.text) {
+      var remote = parseJs(cur.text), base = JSON.parse(peopleSaved);
+      people.teachers = mergeByName(base.teachers || [], people.teachers, remote.teachers || []);
+      people.staff = mergeByName(base.staff || [], people.staff, remote.staff || []);
+    }
     await putFile(PEOPLE_PATH, toB64(PEOPLE_HEAD + JSON.stringify({ updated: stamp, teachers: people.teachers, staff: people.staff }, null, 2) + ";\n"),
       "名簿を編集（" + login + "）", cur && cur.sha);
     // The world reads this list (names only, including people hidden on the site).
@@ -420,13 +445,15 @@
   /* Which Discord account each teacher / staff member signs in with. The person registers by opening an invite link
      (made by the staff API) and logging in with Discord; only a SHA-256 of their Discord ID is saved. */
   function showInviteLink(name, link) {
-    var msg = "YORIMICHI のスタッフ登録リンクです（7日間有効・1回だけ使えます）\nYORIMICHI 스태프 등록 링크입니다 (7일간 유효, 1회만 사용 가능)\n" + link;
+    var msg = "YORIMICHI のスタッフ登録リンクです（48時間有効・1回だけ使えます）\nYORIMICHI 스태프 등록 링크입니다 (48시간 유효, 1회만 사용 가능)\n" + link;
     var box = $("div", { class: "yo-modal yo-ui", role: "dialog", "aria-modal": "true" }, [
       $("div", { class: "yo-modal__card" }, [
         $("p", { class: "yo-eyebrow", text: "INVITE" }),
-        $("h2", { text: name + " さんの招待リンク" }),
+        $("h2", { text: name ? name + " さんの招待リンク" : "新しい人の招待リンク" }),
         $("textarea", { class: "yo-input", rows: "5", readonly: "readonly" }),
-        $("p", { class: "yo-muted", text: "この文をコピーして、本人にだけ Discord の個別メッセージで送ってください。本人がリンクを開いて「Discord でログインして登録」を押すと、登録が終わります。" }),
+        $("p", { class: "yo-muted", text: name
+          ? "この文をコピーして、本人にだけ Discord の個別メッセージで送ってください。本人がリンクを開いて「Discord でログインして登録」を押すと、登録が終わります。"
+          : "この文をコピーして、本人にだけ Discord の個別メッセージで送ってください。本人が役割（先生／運営スタッフ）とプロフィールを送ると、ここの「承認待ち」に出ます。" }),
         $("div", { class: "yo-row" }, [
           $("button", { class: "yo-btn", type: "button", text: "コピー", on: { click: function (e) {
             var btn = e.currentTarget;
@@ -453,6 +480,7 @@
           name = String(item.name || "").trim();   // the name may have been typed after this field was drawn
           if (!name) { toast("先に VRChat の表示名を書いてください", false, true); return; }
           if (peopleDirty()) { toast("先に「保存して公開」を押してから、招待リンクを作ってください", false, true); return; }
+          if (name === login && !confirm("ここは「" + name + "」（かなさん自身）の欄です。かなさんは名簿に登録しなくても管理者としてログインできます。\n\nほかの人を招待するときは、その人の名前で新しい欄を作ってから、その欄の招待リンクを使ってください。\n\nそれでもこの欄の招待リンクを作りますか？")) return;
           btn.disabled = true;
           try {
             var res = await api("/admin/invite", { method: "POST", body: { name: name } });
@@ -472,6 +500,53 @@
     draw();
     return wrap;
   }
+  /* Applications sent through "new person" invite links. Approving adds the person to the roster (site + world) and
+     links their Discord; the staff API does the writing, then the roster is reloaded here. */
+  function applicationsBox() {
+    var wrap = $("div", { class: "yo-list" });
+    var row = function (label, value) { return value ? $("p", { class: "yo-muted", text: label + "：" + value }) : null; };
+    async function draw() {
+      wrap.innerHTML = "";
+      var res;
+      try { res = await api("/admin/applications"); } catch (e) { return; }
+      if (!res.apps.length && !res.drafts) return;
+      wrap.appendChild($("h3", { class: "yo-section", text: "承認待ち（" + res.apps.length + "）" }));
+      if (res.drafts) wrap.appendChild($("p", { class: "yo-muted", text: "ほかに " + res.drafts + " 人が入力中です。" }));
+      res.apps.forEach(function (a) {
+        var p = a.profile || {}, isT = a.role === "teacher";
+        var decide = async function (decision, btn) {
+          if (decision === "approve" && (peopleDirty() || keysDirty())) { toast("先に「保存して公開」を押してから承認してください", false, true); return; }
+          if (decision !== "approve" && !confirm(a.name + " さんの申請を見送りますか？（申請の内容は消えます）")) return;
+          btn.disabled = true;
+          try {
+            await api("/admin/applications", { method: "POST", body: { id: a.id, decision: decision } });
+            if (decision === "approve") { await loadPeople(); changed(true); toast(a.name + " さんを" + (isT ? "先生" : "運営スタッフ") + "として承認しました。1〜2分でサイトとワールドに反映されます。"); openPanel("people"); }
+            else { toast("見送りました"); draw(); }
+          } catch (e) {
+            btn.disabled = false;
+            toast(e.message === "name_taken" ? "同じ VRChat 名の人がもう名簿にいます。名簿を確認してください" : "できませんでした：" + e.message, false, true);
+          }
+        };
+        var thumb = $("div", { class: "yo-thumb" });
+        if (a.image) thumb.appendChild($("img", { src: a.image, alt: "" })); else thumb.textContent = "写真なし";
+        wrap.appendChild($("div", { class: "yo-card yo-card--app" }, [
+          $("div", { class: "yo-row" }, [thumb, $("div", {}, [
+            $("strong", { text: a.name }),
+            $("p", { class: "yo-muted", text: (isT ? "先生" : "運営スタッフ") + " を希望 ・ Discord：" + (a.dn || "") + "（@" + (a.username || "") + "）" })
+          ])]),
+          row(isT ? "担当（日本語）" : "役割（日本語）", isT ? p.lang_ja : p.role_ja),
+          row(isT ? "担当（韓国語）" : "役割（韓国語）", isT ? p.lang_ko : p.role_ko),
+          row("紹介（日本語）", p.bio_ja), row("紹介（韓国語）", p.bio_ko),
+          $("div", { class: "yo-row yo-row--end" }, [
+            $("button", { class: "yo-btn yo-btn--sm yo-btn--danger", type: "button", text: "見送り", on: { click: function (e) { decide("decline", e.currentTarget); } } }),
+            $("button", { class: "yo-btn yo-btn--sm yo-btn--primary", type: "button", text: "承認", on: { click: function (e) { decide("approve", e.currentTarget); } } })
+          ])
+        ]));
+      });
+    }
+    draw();
+    return wrap;
+  }
   function peopleEditor() {
     var box = $("div", { class: "yo-list" });
     var common = [["name", "VRChat の表示名（1文字も違わないように）"]];
@@ -480,8 +555,15 @@
     box.appendChild($("div", { class: "yo-note" }, [
       $("strong", { text: "ここに書いた人が、ワールドで役職を持ちます。" }),
       $("span", { text: "先生：教室の鍵をかけられる／運営スタッフ：鍵のかかった教室にも入れる。保存してから数分でワールドにも反映されます（ワールドにいる人は最大5分ほど）。「サイトに表示しない」にしても役職はそのままです。" }),
-      $("span", { text: "サイトにログインしてもらうには：名前を書いて「保存して公開」→「招待リンクをコピー」→ 本人に Discord で送る。" })
+      $("span", { text: "新しい人を迎えるには：「新しい人を招待」→ リンクを本人に Discord で送る → 本人が役割とプロフィールを送る →「承認待ち」で「承認」。" })
     ]));
+    box.appendChild($("button", { class: "yo-btn yo-btn--primary yo-btn--block", type: "button", text: "＋ 新しい人を招待（招待リンクを作る）", on: { click: async function (e) {
+      var btn = e.currentTarget; btn.disabled = true;
+      try { var res = await api("/admin/invite", { method: "POST", body: {} }); showInviteLink("", location.origin + "/?invite=" + encodeURIComponent(res.token)); }
+      catch (err) { toast("招待リンクを作れませんでした：" + err.message, false, true); }
+      btn.disabled = false;
+    } } }));
+    box.appendChild(applicationsBox());
     box.appendChild($("h3", { class: "yo-section", text: "先生" }));
     box.appendChild(listEditor("先生", function () { return people.teachers; }, Object.assign({ lang_ja: "", lang_ko: "" }, blank),
       common.concat([["lang_ja", "担当（日本語）例：日本語の先生"], ["lang_ko", "担当（韓国語）例：일본어 선생님"]], tail), null, discordField));
@@ -515,17 +597,16 @@
   function buildBar() {
     var b = function (text, fn, attrs) { var a = attrs || {}; a.type = "button"; a.class = "yo-bar__btn " + (a.class || ""); a.text = text; a.on = { click: fn }; return $("button", a); };
     bar = $("div", { class: "yo-bar yo-ui" }, [
-      $("span", { class: "yo-bar__who", title: "ログイン中", text: "● " + login }),
+      $("span", { class: "yo-bar__who", title: "管理者としてログイン中" + (whoUser ? "（@" + whoUser + "）" : ""), text: "● " + (who || login) + "（管理者）" }),
       b("✎ 編集する", function () { setEditing(!editing); }, { "data-edit": "1" }),
       b("予定", function () { openPanel("schedule"); }),
       b("お知らせ", function () { openPanel("news"); }),
       b("質問", function () { openPanel("faq"); }),
       b("名簿", async function () {
         if (!people) return;
-        // Pick up people who registered through an invite link since this page was opened.
-        if (!keysDirty()) {
-          try { var kf = await getFile(KEYS_PATH); keys = kf && kf.text ? JSON.parse(kf.text) : { accounts: [] }; if (!keys.accounts) keys.accounts = []; keysSaved = JSON.stringify(keys); }
-          catch (e) { /* show what we have */ }
+        // Pick up registrations, approvals and members' own profile edits made since this page was opened.
+        if (!keysDirty() && !peopleDirty()) {
+          try { await loadPeople(); changed(true); } catch (e) { /* show what we have */ }
         }
         openPanel("people");
       }),
@@ -594,6 +675,8 @@
     ".yo-thumb img{width:100%;height:100%;object-fit:cover}",
     ".yo-code{margin:4px 0;padding:14px;border-radius:12px;background:var(--soft);font:700 20px/1.3 ui-monospace,Consolas,monospace;letter-spacing:.06em;text-align:center;user-select:all}",
     ".yo-nowrap{white-space:nowrap;flex:none}",
+    ".yo-card--app{border-color:rgba(49,87,255,.35);box-shadow:0 0 0 3px rgba(49,87,255,.06)}",
+    ".yo-card--app p{white-space:pre-wrap}",
     ".yo-section{font-size:15px;margin:10px 2px 0}",
     ".yo-note{display:grid;gap:4px;padding:14px 16px;border-radius:14px;background:rgba(49,87,255,.07);font-size:13px;color:var(--ink)}",
     ".yo-note span{color:var(--muted)}",

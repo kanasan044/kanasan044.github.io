@@ -1,6 +1,8 @@
 /* YORIMICHI 先生・運営スタッフ用（Discord ログイン）。
    main.js が、このブラウザでログインしているとき（または Discord ログインから戻ってきたとき）だけ読み込みます。
-   役職は Cloudflare の API（settings.staff_api）が名簿で判定します。先生は自分が作った予定だけ追加・変更・削除できます。 */
+   役職は Cloudflare の API（settings.staff_api）が名簿で判定します。先生は自分が作った予定だけ追加・変更・削除でき、
+   先生・運営スタッフは自分のプロフィール（担当・紹介・写真）を直せます。招待リンクから来た新しい人は、役割を選んで
+   プロフィールを送り、管理者の承認を待ちます。 */
 (function () {
   "use strict";
 
@@ -30,12 +32,33 @@
     joined: ["登録が完了しました。ようこそ！", "등록이 완료되었습니다. 환영합니다!"],
     need_mfa: ["安全のため、Discord の「2段階認証」をオンにしてからログインしてください。（Discord の「ユーザー設定」→「マイアカウント」→「2段階認証を有効にする」）", "보안을 위해 Discord의 '2단계 인증'을 켠 후 로그인해 주세요. (Discord '사용자 설정' → '내 계정' → '2단계 인증 활성화')"],
     inviteTitle: ["YORIMICHI スタッフ登録", "YORIMICHI 스태프 등록"],
-    inviteBody: ["Discord でログインすると、登録が完了します。次からはサイトのいちばん下の「スタッフログイン」からログインできます。", "Discord로 로그인하면 등록이 완료됩니다. 다음부터는 사이트 맨 아래의 '스태프 로그인'으로 로그인할 수 있습니다."],
+    inviteBody: ["Discord でログインして、登録を進めてください（Discord の2段階認証が必要です）。次からはサイトのいちばん下の「スタッフログイン」からログインできます。", "Discord로 로그인해서 등록을 진행해 주세요 (Discord 2단계 인증이 필요합니다). 다음부터는 사이트 맨 아래의 '스태프 로그인'으로 로그인할 수 있습니다."],
     inviteBtn: ["Discord でログインして登録", "Discord로 로그인하여 등록"],
     date: ["日付", "날짜"], start: ["開始", "시작"], end: ["終了", "종료"], type: ["種類", "종류"],
     title_ja: ["タイトル（日本語）", "제목（일본어）"], title_ko: ["タイトル（韓国語）", "제목（한국어）"],
     desc_ja: ["説明（日本語）", "설명（일본어）"], desc_ko: ["説明（韓国語）", "설명（한국어）"],
-    host: ["担当", "담당"], place: ["場所", "장소"]
+    host: ["担当", "담당"], place: ["場所", "장소"],
+    // new person: choose a role, then a profile
+    obWelcome: ["ようこそ YORIMICHI へ！", "YORIMICHI에 오신 것을 환영합니다!"],
+    obStep1: ["あなたの役割を選んでください", "당신의 역할을 선택해 주세요"],
+    obTeacher: ["先生", "선생님"], obTeacherSub: ["日本語・韓国語の授業をする", "일본어·한국어 수업을 해요"],
+    obStaff: ["運営スタッフ", "운영 스태프"], obStaffSub: ["ワールドの運営やイベントを手伝う", "월드 운영과 이벤트를 도와요"],
+    next: ["次へ", "다음"], back: ["戻る", "뒤로"], send: ["送信する", "보내기"],
+    obStep2: ["プロフィールを登録してください", "프로필을 등록해 주세요"],
+    obStep2Sub: ["サイトの「教員・スタッフ紹介」に載ります。日本語と韓国語のどちらか片方だけでも大丈夫です。", "사이트의 '선생님·스태프 소개'에 실립니다. 일본어와 한국어 중 한쪽만 써도 괜찮아요."],
+    vrcName: ["VRChat の表示名（1文字も違わないように）", "VRChat 표시 이름（한 글자도 틀리지 않게）"],
+    vrcNameHelp: ["ワールドで先生・スタッフとして扱われる名前です。", "월드에서 선생님·스태프로 인식되는 이름입니다."],
+    lang_ja: ["担当（日本語）", "담당（일본어）"], lang_ko: ["担当（韓国語）", "담당（한국어）"],
+    role_ja: ["役割（日本語）", "역할（일본어）"], role_ko: ["役割（韓国語）", "역할（한국어）"],
+    bio_ja: ["自己紹介（日本語）", "자기소개（일본어）"], bio_ko: ["自己紹介（韓国語）", "자기소개（한국어）"],
+    photo: ["写真（なくても大丈夫）", "사진（없어도 괜찮아요）"], pick: ["写真を選ぶ", "사진 선택"], unpick: ["外す", "삭제"], noPhoto: ["写真なし", "사진 없음"],
+    obDone: ["送信しました！", "보냈습니다!"],
+    obDoneSub: ["かなさんが確認して承認すると、先生・スタッフとして使えるようになります。承認されたら、サイトのいちばん下の「スタッフログイン」からログインしてください。", "운영자(카나상)가 확인하고 승인하면 선생님·스태프로 이용할 수 있습니다. 승인 후 사이트 맨 아래의 '스태프 로그인'으로 로그인해 주세요."],
+    pending: ["承認待ち", "승인 대기"], pendingNote: ["申請を受け付けました。かなさんの承認をお待ちください。", "신청이 접수되었습니다. 운영자(카나상)의 승인을 기다려 주세요."],
+    redo: ["申請を直す", "신청 수정"],
+    // members: their own profile
+    profile: ["プロフィール", "프로필"], profileNote: ["VRChat の表示名と役割を変えたいときは、かなさんに伝えてください。", "VRChat 표시 이름과 역할을 바꾸려면 운영자(카나상)에게 알려 주세요."],
+    profileSaved: ["プロフィールを保存しました。1〜2分でサイトに反映されます。", "프로필을 저장했습니다. 1~2분 후 사이트에 반영됩니다."]
   };
   var ERR = {
     bad_date: ["日付を入れてください", "날짜를 입력해 주세요"], bad_time: ["時間を入れてください", "시간을 입력해 주세요"],
@@ -44,7 +67,11 @@
     not_found: ["この予定は見つかりませんでした（削除された可能性があります）", "이 일정을 찾을 수 없습니다（삭제되었을 수 있습니다）"],
     teachers_only: ["予定の編集は先生だけができます", "일정 편집은 선생님만 할 수 있습니다"],
     busy: ["混み合っています。もう一度押してください", "혼잡합니다. 다시 눌러 주세요"],
-    discord: ["Discord とうまくつながりませんでした。もう一度お試しください", "Discord와 연결하지 못했습니다. 다시 시도해 주세요"]
+    discord: ["Discord とうまくつながりませんでした。もう一度お試しください", "Discord와 연결하지 못했습니다. 다시 시도해 주세요"],
+    no_name: ["VRChat の表示名を入れてください", "VRChat 표시 이름을 입력해 주세요"],
+    bad_role: ["役割を選んでください", "역할을 선택해 주세요"],
+    bad_picture: ["この写真は使えませんでした。別の写真を選んでください", "이 사진은 사용할 수 없습니다. 다른 사진을 선택해 주세요"],
+    not_applicant: ["招待リンクからもう一度ログインしてください", "초대 링크로 다시 로그인해 주세요"]
   };
   function ko() { return SITE.getLang() === "ko"; }
   function t(k) { return L[k][ko() ? 1 : 0]; }
@@ -87,6 +114,130 @@
     if (!expected || h.get("n") !== expected) return { error: "expired" };   // a login this page did not start
     try { localStorage.setItem(SESSION_KEY, h.get("yo_session")); } catch (e) { /* private window: works for this page only */ }
     return { session: h.get("yo_session"), joined: h.has("yo_joined") };
+  }
+
+  function pair(k) { return L[k][0] + " / " + L[k][1]; }
+
+  // A picture from this device, shrunk to 640px JPEG (profile photos).
+  function pickPicture(done) {
+    var input = $("input", { type: "file", accept: "image/*" });
+    input.addEventListener("change", function () {
+      var file = input.files[0]; if (!file) return;
+      var img = new Image(), url = URL.createObjectURL(file);
+      img.onload = function () {
+        var scale = Math.min(1, 640 / Math.max(img.width, img.height));
+        var c = document.createElement("canvas");
+        c.width = Math.round(img.width * scale); c.height = Math.round(img.height * scale);
+        var g = c.getContext("2d"); g.fillStyle = "#fff"; g.fillRect(0, 0, c.width, c.height); g.drawImage(img, 0, 0, c.width, c.height);
+        URL.revokeObjectURL(url);
+        done(c.toDataURL("image/jpeg", 0.82));
+      };
+      img.onerror = function () { URL.revokeObjectURL(url); toast(errText({ message: "bad_picture" }), false, true); };
+      img.src = url;
+    });
+    input.click();
+  }
+  // Profile form shared by the new-person screen and the members' profile panel.
+  function profileForm(role, data, withName) {
+    var f = function (key, type) {
+      var input = type === "textarea" ? $("textarea", { class: "yo-input", rows: "3" }) : $("input", { class: "yo-input", type: "text" });
+      input.value = data[key] || "";
+      input.addEventListener("input", function () { data[key] = input.value; });
+      return $("label", { class: "yo-field" }, [$("span", { text: pair(key) }), input]);
+    };
+    var thumb = $("div", { class: "yo-thumb" });
+    var showThumb = function () { thumb.innerHTML = ""; if (data.image) thumb.appendChild($("img", { src: data.image, alt: "" })); else thumb.textContent = t("noPhoto"); };
+    showThumb();
+    var kids = [];
+    if (withName) kids.push(f("vrcName"), $("p", { class: "yo-muted", text: pair("vrcNameHelp") }));
+    if (withName) { kids[0].querySelector("input").value = data.name || ""; kids[0].querySelector("input").addEventListener("input", function (e) { data.name = e.target.value; }); }
+    kids.push(role === "teacher" ? f("lang_ja") : f("role_ja"), role === "teacher" ? f("lang_ko") : f("role_ko"), f("bio_ja", "textarea"), f("bio_ko", "textarea"));
+    kids.push($("div", { class: "yo-field" }, [$("span", { text: pair("photo") }), $("div", { class: "yo-row" }, [thumb,
+      $("button", { class: "yo-btn yo-btn--sm", type: "button", text: t("pick"), on: { click: function () { pickPicture(function (d) { data.image = d; showThumb(); }); } } }),
+      $("button", { class: "yo-btn yo-btn--sm", type: "button", text: t("unpick"), on: { click: function () { data.image = ""; showThumb(); } } })
+    ])]));
+    return $("div", { class: "yo-list" }, kids);
+  }
+
+  // New person (opened a "new person" invite): 1) choose 先生 / 運営スタッフ, 2) profile, 3) sent → waits for approval.
+  function showOnboarding() {
+    var data = { role: me.applied || "", name: me.name || "", image: "" };
+    var box = $("div", { class: "yo-modal yo-ui", role: "dialog", "aria-modal": "true" });
+    var card = $("div", { class: "yo-modal__card yo-modal__card--wide" });
+    box.appendChild(card);
+    function step1() {
+      card.innerHTML = "";
+      var choice = function (role, title, sub) {
+        var b = $("button", { type: "button", class: "yo-choice" + (data.role === role ? " is-on" : ""), on: { click: function () { data.role = role; step1(); } } }, [
+          $("strong", { text: pair(title) }), $("span", { text: L[sub][0] }), $("span", { text: L[sub][1] })
+        ]);
+        return b;
+      };
+      card.appendChild($("p", { class: "yo-eyebrow", text: "STEP 1 / 2" }));
+      card.appendChild($("h2", { text: L.obWelcome[0] }));
+      card.appendChild($("p", { class: "yo-muted", text: L.obWelcome[1] }));
+      card.appendChild($("p", { text: pair("obStep1") }));
+      card.appendChild($("div", { class: "yo-choices" }, [choice("teacher", "obTeacher", "obTeacherSub"), choice("staff", "obStaff", "obStaffSub")]));
+      var next = $("button", { class: "yo-btn yo-btn--primary", type: "button", text: pair("next"), on: { click: step2 } });
+      if (!data.role) next.disabled = true;
+      card.appendChild($("div", { class: "yo-row yo-row--end" }, [next]));
+    }
+    function step2() {
+      card.innerHTML = "";
+      card.appendChild($("p", { class: "yo-eyebrow", text: "STEP 2 / 2 ・ " + pair(data.role === "teacher" ? "obTeacher" : "obStaff") }));
+      card.appendChild($("h2", { text: pair("obStep2") }));
+      card.appendChild($("p", { class: "yo-muted", text: L.obStep2Sub[0] }));
+      card.appendChild($("p", { class: "yo-muted", text: L.obStep2Sub[1] }));
+      card.appendChild(profileForm(data.role, data, true));
+      var sendBtn = $("button", { class: "yo-btn yo-btn--primary", type: "button", text: pair("send") });
+      sendBtn.addEventListener("click", async function () {
+        if (!String(data.name || "").trim()) { toast(errText({ message: "no_name" }), false, true); return; }
+        sendBtn.disabled = true;
+        try { await call("POST", "/apply", data); step3(); }
+        catch (e) { sendBtn.disabled = false; toast(t("failed") + "：" + errText(e), false, true); }
+      });
+      card.appendChild($("div", { class: "yo-row yo-row--end" }, [
+        $("button", { class: "yo-btn", type: "button", text: pair("back"), on: { click: step1 } }), sendBtn
+      ]));
+    }
+    function step3() {
+      card.innerHTML = "";
+      card.appendChild($("p", { class: "yo-eyebrow", text: "THANK YOU" }));
+      card.appendChild($("h2", { text: pair("obDone") }));
+      card.appendChild($("p", { text: L.obDoneSub[0] }));
+      card.appendChild($("p", { class: "yo-muted", text: L.obDoneSub[1] }));
+      card.appendChild($("button", { class: "yo-btn yo-btn--primary", type: "button", text: pair("close"), on: { click: function () { box.remove(); me.status = "pending"; buildBar(); } } }));
+    }
+    step1();
+    document.body.appendChild(box);
+  }
+
+  // Members edit their own 担当／役割, introduction and photo (not the VRChat name or the role).
+  async function openProfile() {
+    if (panel) panel.remove();
+    panel = $("aside", { class: "yo-panel yo-ui" }, [
+      $("div", { class: "yo-panel__head" }, [
+        $("h2", { text: t("profile") }),
+        $("button", { class: "yo-btn yo-btn--sm", type: "button", text: t("close"), on: { click: function () { panel.remove(); panel = null; } } })
+      ]),
+      $("div", { class: "yo-panel__body" })
+    ]);
+    document.body.appendChild(panel);
+    var body = panel.querySelector(".yo-panel__body");
+    var data;
+    try { data = await call("GET", "/profile"); } catch (e) { toast(t("failed") + "：" + errText(e), false, true); return; }
+    var saveBtn = $("button", { class: "yo-btn yo-btn--primary yo-btn--block", type: "button", text: t("save") });
+    saveBtn.addEventListener("click", async function () {
+      saveBtn.disabled = true;
+      try { data = await call("POST", "/profile", data); toast(t("profileSaved")); }
+      catch (e) { toast(t("failed") + "：" + errText(e), false, true); }
+      saveBtn.disabled = false;
+    });
+    body.appendChild($("div", { class: "yo-card" }, [
+      $("strong", { text: data.name + "（" + t(data.role === "teacher" ? "teacher" : "staff") + "）" }),
+      $("p", { class: "yo-muted", text: t("profileNote") }),
+      profileForm(data.role, data, false), saveBtn
+    ]));
   }
 
   // A longer message in both languages (e.g. "turn on two-factor authentication").
@@ -218,9 +369,14 @@
   function buildBar() {
     if (bar) bar.remove();
     var b = function (text, fn, cls) { return $("button", { type: "button", class: "yo-bar__btn " + (cls || ""), text: text, on: { click: fn } }); };
+    var applicant = me.role === "applicant";
+    var label = applicant ? t("pending") : t(me.role === "teacher" ? "teacher" : "staff");
     bar = $("div", { class: "yo-bar yo-ui" }, [
-      $("span", { class: "yo-bar__who", text: "● " + me.name + "（" + t(me.role === "teacher" ? "teacher" : "staff") + "）" }),
+      $("span", { class: "yo-bar__who", title: (me.name || "") + (me.username ? "（@" + me.username + "）" : ""),
+        text: "● " + (me.discord || me.name) + "（" + label + "）" }),
       me.role === "teacher" ? b(t("edit"), openPanel, "yo-bar__save") : null,
+      me.role === "teacher" || me.role === "staff" ? b(t("profile"), openProfile) : null,
+      applicant ? b(t("redo"), showOnboarding) : null,
       b(t("logout"), logout, "yo-bar__ghost")
     ]);
     document.body.appendChild(bar);
@@ -264,6 +420,15 @@
     ".yo-modal{position:fixed;inset:0;z-index:100;display:grid;place-items:center;padding:16px;background:rgba(12,14,19,.45);backdrop-filter:blur(4px)}",
     ".yo-modal__card{width:min(440px,100%);display:grid;gap:12px;padding:28px;background:#fff;border-radius:24px;box-shadow:var(--shadow-lg)}",
     ".yo-modal__card h2{font-size:20px;margin:0}",
+    ".yo-modal__card--wide{width:min(560px,100%);max-height:calc(100vh - 32px);overflow-y:auto}",
+    ".yo-choices{display:grid;grid-template-columns:1fr 1fr;gap:10px}",
+    "@media (max-width:520px){.yo-choices{grid-template-columns:1fr}}",
+    ".yo-choice{display:grid;gap:4px;text-align:left;padding:18px;border:2px solid var(--line);border-radius:16px;background:#fff;font:inherit;color:var(--ink);cursor:pointer}",
+    ".yo-choice strong{font-size:17px}.yo-choice span{font-size:12.5px;color:var(--muted)}",
+    ".yo-choice:hover{border-color:rgba(49,87,255,.45)}",
+    ".yo-choice.is-on{border-color:var(--accent);background:rgba(49,87,255,.06);box-shadow:0 0 0 3px rgba(49,87,255,.12)}",
+    ".yo-thumb{width:56px;height:56px;flex:none;display:grid;place-items:center;overflow:hidden;border-radius:50%;background:var(--soft);border:1px solid var(--line);font-size:10.5px;color:var(--muted)}",
+    ".yo-thumb img{width:100%;height:100%;object-fit:cover}",
     ".yo-eyebrow{font-size:12px;font-weight:800;letter-spacing:.14em;color:var(--accent);margin:0}",
     ".yo-code{margin:4px 0;padding:14px;border-radius:12px;background:var(--soft);font:700 18px/1.3 ui-monospace,Consolas,monospace;text-align:center;user-select:all}",
     ".yo-toast{position:fixed;left:50%;bottom:84px;transform:translate(-50%,10px);z-index:98;max-width:min(560px,calc(100% - 32px));padding:12px 18px;border-radius:14px;background:#fff;border:1px solid var(--line);box-shadow:var(--shadow);font-size:14px;font-weight:600;opacity:0;pointer-events:none;transition:all .25s}",
@@ -292,8 +457,12 @@
         return;
       }
       buildBar();
-      if (result) toast((result.joined ? t("joined") : t("welcome")) + "：" + me.name);
-      if (me.role === "teacher") apply((await call("GET", "/schedule")).schedule);
+      if (me.role === "applicant") {
+        if (me.status === "draft") showOnboarding(); else toast(t("pendingNote"));
+      } else {
+        if (result) toast((result.joined ? t("joined") : t("welcome")) + "：" + (me.discord || me.name));
+        if (me.role === "teacher") apply((await call("GET", "/schedule")).schedule);
+      }
     } catch (e) {
       if (e.status === 401) { forget(); toast(t("expired"), false, true); }
       else if (e.status === 403 && e.body && e.body.error === "not_member") { forget(); showNotMember(e.body); }
