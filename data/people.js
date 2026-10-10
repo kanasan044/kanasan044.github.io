@@ -1,6 +1,6 @@
 /* サイト内の「名簿」から保存されるファイルです。 */
 window.YORIMICHI_PEOPLE = {
-  "updated": "2026-10-10 19:01",
+  "updated": "2026-10-10 21:37",
   "teachers": [],
   "staff": [
     {
@@ -10,7 +10,9 @@ window.YORIMICHI_PEOPLE = {
       "bio_ja": "YORIMICHI をつくっています。",
       "bio_ko": "YORIMICHI를 만들고 있어요.",
       "image": "",
-      "show": true
+      "show": true,
+      "bio": "YORIMICHI をつくっています。",
+      "rank": "founder"
     },
     {
       "name": "카나바보",
