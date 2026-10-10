@@ -28,6 +28,7 @@
     invite_expired: ["この招待リンクは期限切れか、使えなくなっています。かなさんに新しいリンクをもらってください。", "이 초대 링크는 만료되었거나 사용할 수 없습니다. 운영자(카나상)에게 새 링크를 받아 주세요."],
     invite_used: ["この招待リンクはもう使われています。かなさんに新しいリンクをもらってください。", "이 초대 링크는 이미 사용되었습니다. 운영자(카나상)에게 새 링크를 받아 주세요."],
     joined: ["登録が完了しました。ようこそ！", "등록이 완료되었습니다. 환영합니다!"],
+    need_mfa: ["安全のため、Discord の「2段階認証」をオンにしてからログインしてください。（Discord の「ユーザー設定」→「マイアカウント」→「2段階認証を有効にする」）", "보안을 위해 Discord의 '2단계 인증'을 켠 후 로그인해 주세요. (Discord '사용자 설정' → '내 계정' → '2단계 인증 활성화')"],
     inviteTitle: ["YORIMICHI スタッフ登録", "YORIMICHI 스태프 등록"],
     inviteBody: ["Discord でログインすると、登録が完了します。次からはサイトのいちばん下の「スタッフログイン」からログインできます。", "Discord로 로그인하면 등록이 완료됩니다. 다음부터는 사이트 맨 아래의 '스태프 로그인'으로 로그인할 수 있습니다."],
     inviteBtn: ["Discord でログインして登録", "Discord로 로그인하여 등록"],
@@ -86,6 +87,18 @@
     if (!expected || h.get("n") !== expected) return { error: "expired" };   // a login this page did not start
     try { localStorage.setItem(SESSION_KEY, h.get("yo_session")); } catch (e) { /* private window: works for this page only */ }
     return { session: h.get("yo_session"), joined: h.has("yo_joined") };
+  }
+
+  // A longer message in both languages (e.g. "turn on two-factor authentication").
+  function showNotice(pair) {
+    var box = $("div", { class: "yo-modal yo-ui", role: "dialog", "aria-modal": "true" }, [
+      $("div", { class: "yo-modal__card" }, [
+        $("p", { class: "yo-eyebrow", text: "STAFF LOGIN" }),
+        $("p", { text: pair[0] }), $("p", { class: "yo-muted", text: pair[1] }),
+        $("button", { class: "yo-btn yo-btn--primary", type: "button", text: L.close[0] + " / " + L.close[1], on: { click: function () { box.remove(); } } })
+      ])
+    ]);
+    document.body.appendChild(box);
   }
 
   // Opened an invite link (…?invite=…): explain, then log in with Discord carrying the invite.
@@ -264,6 +277,7 @@
     var invite = (location.search.match(/[?&]invite=([^&]+)/) || [])[1];
     if (invite && !/yo_(session|error)=/.test(location.hash)) { showInvite(decodeURIComponent(invite)); return; }
     var result = takeLoginResult();
+    if (result && result.error === "need_mfa") { showNotice(L.need_mfa); return; }
     if (result && result.error) { toast(L[result.error] ? t(result.error) : errText({ message: result.error }), false, true); return; }
     try { token = result ? result.session : localStorage.getItem(SESSION_KEY); } catch (e) { token = null; }
     if (!token) return;

@@ -208,6 +208,8 @@
         var same = function (a, b) { return a.name === b.name && a.h === b.h; };
         var removed = JSON.parse(keysSaved).accounts.filter(function (a) { return !keys.accounts.some(function (b) { return same(a, b); }); });
         keys.accounts = latest.filter(function (a) { return !removed.some(function (b) { return same(a, b); }); });
+        var latestEpoch = kf && kf.text ? (JSON.parse(kf.text).epoch || 0) : 0;
+        if (latestEpoch > (keys.epoch || 0)) keys.epoch = latestEpoch;
         await putFile(KEYS_PATH, toB64(JSON.stringify(keys, null, 2) + "\n"), "スタッフログインの Discord を更新", kf && kf.sha);
         keysSaved = JSON.stringify(keys);
       }
@@ -378,8 +380,19 @@
     ]);
     group("トップのお知らせバー", [f("announcement_ja", "日本語（空なら非表示）", "textarea"), f("announcement_ko", "韓国語", "textarea")]);
     group("募集状況（採用情報ページ）", [f("recruit_teacher", "先生", "select", ["募集中", "停止"]), f("recruit_staff", "運営スタッフ", "select", ["募集中", "停止"])]);
-    group("スタッフログイン（Discord）", [f("staff_api", "Cloudflare の API の URL（空ならフッターのログインは表示されません）"),
-      $("p", { class: "yo-muted", text: "だれがログインできるかは「名簿」の各先生・運営スタッフの Discord 欄で決めます。" })]);
+    group("スタッフログイン（Discord）", [
+      $("p", { class: "yo-muted", text: "だれがログインできるかは「名簿」の招待リンクで決めます。スマホをなくしたときなどは、下のボタンで全員をログアウトさせられます（かなさんも、もう一度ログインが必要になります）。" }),
+      $("button", { class: "yo-btn yo-btn--danger", type: "button", text: "すべての端末からログアウト", on: { click: async function () {
+        if (!confirm("先生・運営スタッフ・かなさん自身も含めて、全員をログアウトさせますか？\n（ほかの変更もいっしょに保存されます）")) return;
+        keys.epoch = Date.now();
+        await save();
+        if (!dirty()) {
+          try { localStorage.removeItem(SESSION_KEY); } catch (e) { /* ignore */ }
+          alert("全員をログアウトしました。続けて編集するときは、いちばん下の「スタッフログイン」からもう一度ログインしてください。");
+          location.href = location.pathname;
+        }
+      } } }),
+      f("staff_api", "（上級者向け）Cloudflare の API の URL。空なら最初からのアドレスを使います")]);
     group("独自ドメイン", [f("domain", "例：yorimichi.jp（空なら kanasan044.github.io）"),
       $("p", { class: "yo-muted", text: "ドメイン会社側の設定も必要です。設定するときは Claude に聞いてください。" })]);
     box.appendChild($("p", { class: "yo-muted", text: "写真は「編集する」をオンにして、ページの写真の上のボタンから変えられます。" }));
