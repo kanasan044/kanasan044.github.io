@@ -345,6 +345,8 @@
       canEdit: function (x) { return x.owner === me.name; },
       templates: function () { return (window.YORIMICHI_CONTENT || {}).schedule_templates || []; },
       host: me.name,
+      hosts: function () { return [me.name]; },
+      cats: SITE.scheduleCats || [],
       toast: function (msg, bad) { toast(msg, false, bad); },
       notice: t("done").replace(/^[^！!]*[！!]\s*/, ""),
       add: function (items) { return send({ op: "add", items: items }); },
@@ -458,9 +460,11 @@
     try {
       me = await call("GET", "/me");
       report(true);
-      if (me.role === "admin") {
-        // The admin gets the full editor (its own toolbar); hand over this session.
+      if (me.role === "admin" || me.role === "staff") {
+        // 創設者 gets the full editor, 運営スタッフ the same editor limited to site content (admin.js checks the role;
+        // the staff API enforces it). Both use the editor's own toolbar; hand over this session.
         window.YORIMICHI_SESSION = token;
+        if (me.role === "staff") window.YORIMICHI_OPEN_PROFILE = openProfile;
         SITE.loadScript("assets/js/schedule-editor.js", function () { SITE.loadScript("assets/js/admin.js"); });
         if (result) toast(t("welcome") + "：" + (me.discord || me.name));
         return;

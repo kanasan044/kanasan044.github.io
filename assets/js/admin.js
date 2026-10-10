@@ -38,7 +38,8 @@
 
   /* ---------- staff API (saves to GitHub for us) ---------- */
   var ERRORS = { github_409: "ほかの画面で同時に保存されました。もう一度「保存して公開」を押してください",
-    not_signed_in: "ログインの期限が切れました。もう一度ログインしてください", admins_only: "このアカウントには編集の権限がありません" };
+    not_signed_in: "ログインの期限が切れました。もう一度ログインしてください", admins_only: "このアカウントには編集の権限がありません",
+    founders_only: "この変更は創設者（かなさん）だけができます" };
   async function api(path, opts) {
     opts = opts || {};
     var r = await fetch(API + path, {
@@ -71,9 +72,14 @@
     return api("/admin/file", { method: "DELETE", body: { path: path, message: message, sha: sha } });
   }
 
+  // 創設者 ("admin") gets everything; 運営スタッフ ("staff") gets the site content only — no 名簿 / 役職 / 招待 / リンク /
+  // ドメイン / 全員ログアウト (the staff API refuses those for staff too).
+  var ROLE = "admin";
+  function founder() { return ROLE === "admin"; }
   async function verify() {
     var me = await api("/me");
-    if (me.role !== "admin") { var err = new Error(ERRORS.admins_only); err.status = 403; throw err; }
+    if (me.role !== "admin" && me.role !== "staff") { var err = new Error(ERRORS.admins_only); err.status = 403; throw err; }
+    ROLE = me.role;
     who = me.discord || ""; whoUser = me.username || "";   // the Discord account actually signed in, for the toolbar
     return me.name;
   }
@@ -121,7 +127,7 @@
     // Every event gets an id so teachers' changes can be merged with this draft on save.
     draft.schedule.forEach(function (x) { if (!x.id) { x.id = newId(); freshIds[x.id] = true; } });
     saved = JSON.stringify(draft);
-    await loadPeople();
+    if (founder()) await loadPeople();
     SITE.setContent(view());
   }
   // The roster and who may sign in, fresh from the repository (also after approving someone).
@@ -133,6 +139,9 @@
     var pf = await getFile(PEOPLE_PATH);
     var po = pf && pf.text ? parseJs(pf.text) : (window.YORIMICHI_PEOPLE || {});
     people = { teachers: po.teachers || [], staff: po.staff || [] };
+    // Older entries have a two-language introduction (bio_ja / bio_ko): start the single 自己紹介 from it.
+    // (The old fields are kept in the file; the site shows 自己紹介 first.)
+    people.teachers.concat(people.staff).forEach(function (p) { if (!p.bio && (p.bio_ja || p.bio_ko)) p.bio = p.bio_ja || p.bio_ko; });
     peopleSaved = JSON.stringify(people);
   }
 
@@ -196,7 +205,9 @@
     // The world reads this list (names only, including people hidden on the site).
     var names = function (list) { return list.map(function (p) { return p.name; }).filter(function (n, i, a) { return n && a.indexOf(n) === i; }); };
     var roster = await getFile(ROSTER_PATH);
-    await putFile(ROSTER_PATH, toB64(JSON.stringify({ updated: stamp, teachers: names(people.teachers), staff: names(people.staff) }, null, 2) + "\n"),
+    // founders are also in staff (the world treats them as staff); the staff API gives them full rights.
+    var founders = people.staff.filter(function (p) { return p.rank === "founder"; });
+    await putFile(ROSTER_PATH, toB64(JSON.stringify({ updated: stamp, teachers: names(people.teachers), staff: names(people.staff), founders: names(founders) }, null, 2) + "\n"),
       "ワールドの役職を更新（" + login + "）", roster && roster.sha);
     peopleSaved = JSON.stringify(people);
   }
@@ -390,7 +401,7 @@
     return wrap;
   }
   function itemField(item, f) {
-    if (f[4] === "legacy" && !item[f[0]]) return null;
+    if (f[2] === "role") return roleField(f[1], item);
     if (f[2] === "tags") return tagsField(f[1], item, f[0]);
     if (f[2] === "photo") return photoField(f[1], item, f[0]);
     if (f[2] === "bool") return field(f[1], item[f[0]] === false ? "表示しない" : "表示する", function (v) { item[f[0]] = v === "表示する"; }, "select", ["表示する", "表示しない"]);
@@ -424,13 +435,18 @@
     var s = draft.settings, box = $("div", { class: "yo-list" });
     var group = function (title, kids) { box.appendChild($("div", { class: "yo-card" }, [$("h3", { text: title })].concat(kids))); };
     var f = function (key, label, type, opts) { return field(label, s[key], function (v) { s[key] = v; }, type, opts); };
-    group("リンク", [
+    // 運営スタッフ see only the announcement bar and the recruiting status; the rest is for the founder.
+    if (founder()) group("リンク", [
       f("world_url", "VRChat ワールドのURL"), f("group_url", "VRChat グループのURL"),
       f("recruit_form_url", "応募フォーム（Google フォーム）のURL"), f("staff_page_url", "スタッフ専用ページのURL"),
       f("discord_url", "Discord のURL（空なら非表示）"), f("x_url", "X のURL（空なら非表示）")
     ]);
     group("トップのお知らせバー", [f("announcement_ja", "日本語（空なら非表示）", "textarea"), f("announcement_ko", "韓国語", "textarea")]);
     group("募集状況（採用情報ページ）", [f("recruit_teacher", "先生", "select", ["募集中", "停止"]), f("recruit_staff", "運営スタッフ", "select", ["募集中", "停止"])]);
+    if (!founder()) {
+      box.appendChild($("p", { class: "yo-muted", text: "リンク・名簿・役職などの設定は、創設者（かなさん）だけが変えられます。" }));
+      return box;
+    }
     group("スタッフログイン（Discord）", [
       $("p", { class: "yo-muted", text: "だれがログインできるかは「名簿」の招待リンクで決めます。スマホをなくしたときなどは、下のボタンで全員をログアウトさせられます（かなさんも、もう一度ログインが必要になります）。" }),
       $("button", { class: "yo-btn yo-btn--danger", type: "button", text: "すべての端末からログアウト", on: { click: async function () {
@@ -439,7 +455,7 @@
         await save();
         if (!dirty()) {
           try { localStorage.removeItem(SESSION_KEY); } catch (e) { /* ignore */ }
-          alert("全員をログアウトしました。続けて編集するときは、いちばん下の「スタッフログイン」からもう一度ログインしてください。");
+          alert("全員をログアウトしました。続けて編集するときは、右上の「スタッフログイン」からもう一度ログインしてください。");
           location.href = location.pathname;
         }
       } } }),
@@ -463,10 +479,18 @@
         saveTemplate: function (tp) { draft.schedule_templates = (draft.schedule_templates || []).concat([tp]); changed(true); },
         removeTemplate: function (i) { draft.schedule_templates.splice(i, 1); changed(true); },
         host: "",
+        hosts: function () { return ((people || window.YORIMICHI_PEOPLE || {}).teachers || []).map(function (p) { return p.name; }); },
+        cats: SITE.scheduleCats || [],
         notice: "「保存して公開」で公開されます。",
         toast: function (msg, bad) { toast(msg, false, bad); },
         add: function (items) { items.forEach(function (x) { x.id = newId(); draft.schedule.push(x); }); changed(true); },
-        update: function (id, item) { var x = find(id); if (x) { Object.keys(item).forEach(function (k) { if (k !== "id" && k !== "owner") x[k] = item[k]; }); } changed(true); },
+        // Replace the event's fields (keeps id / owner), so old desc_ja / desc_ko don't hide the new single 説明.
+        update: function (id, item) {
+          var x = find(id); if (!x) return;
+          Object.keys(x).forEach(function (k) { if (k !== "id" && k !== "owner") delete x[k]; });
+          Object.keys(item).forEach(function (k) { if (k !== "id" && k !== "owner") x[k] = item[k]; });
+          changed(true);
+        },
         remove: function (id) { draft.schedule = draft.schedule.filter(function (x) { return x.id !== id; }); changed(true); }
       });
     }],
@@ -588,15 +612,14 @@
   }
   function peopleEditor() {
     var box = $("div", { class: "yo-list" });
-    var common = [["name", "VRChat の表示名（1文字も違わないように）"]];
-    // bio_ja / bio_ko are the older two-language introduction: only shown for entries that still have them.
-    var tail = [["bio", "自己紹介（サイトにはこちらが優先して出ます）", "textarea"], ["tags", "タグ", "tags"],
-      ["bio_ja", "以前の紹介（日本語）", "textarea", null, "legacy"], ["bio_ko", "以前の紹介（韓国語）", "textarea", null, "legacy"],
+    // The role (創設者 / 運営スタッフ / 先生) is chosen with buttons, like Discord roles; only founders see this screen.
+    var fields = [["name", "VRChat の表示名（1文字も違わないように）"], ["role", "役職", "role"], ["bio", "自己紹介", "textarea"], ["tags", "タグ", "tags"],
       ["image", "写真", "photo"], ["show", "サイトに表示", "bool"]];
     var blank = { name: "", bio: "", tags: [], image: "", show: true };
     box.appendChild($("div", { class: "yo-note" }, [
-      $("strong", { text: "ここに書いた人が、ワールドで役職を持ちます。" }),
-      $("span", { text: "先生：教室の鍵をかけられる／運営スタッフ：鍵のかかった教室にも入れる。保存してから数分でワールドにも反映されます（ワールドにいる人は最大5分ほど）。「サイトに表示しない」にしても役職はそのままです。" }),
+      $("strong", { text: "ここに書いた人が、サイトとワールドで役職を持ちます。役職はボタンで変えられます。" }),
+      $("span", { text: "創設者：すべて（名簿・役職・招待・リンクなど）／運営スタッフ：予定・お知らせ・質問・サイトの文章と写真（役職や名簿は変えられません）／先生：自分の予定とプロフィール。" }),
+      $("span", { text: "ワールドでは、先生は教室の鍵をかけられ、運営スタッフ・創設者は鍵のかかった教室にも入れます。保存してから数分で反映されます（ワールドにいる人は最大5分ほど）。「サイトに表示しない」にしても役職はそのままです。" }),
       $("span", { text: "新しい人を迎えるには：「新しい人を招待」→ リンクを本人に Discord で送る → 本人が役割とプロフィールを送る →「承認待ち」で「承認」。" })
     ]));
     box.appendChild($("button", { class: "yo-btn yo-btn--primary yo-btn--block", type: "button", text: "＋ 新しい人を招待（招待リンクを作る）", on: { click: async function (e) {
@@ -606,19 +629,38 @@
       btn.disabled = false;
     } } }));
     box.appendChild(applicationsBox());
+    box.appendChild($("h3", { class: "yo-section", text: "創設者・運営スタッフ" }));
+    box.appendChild(listEditor("運営スタッフ", function () { return people.staff; }, blank, fields, null, discordField));
     box.appendChild($("h3", { class: "yo-section", text: "先生" }));
-    box.appendChild(listEditor("先生", function () { return people.teachers; }, Object.assign({ lang_ja: "", lang_ko: "" }, blank),
-      common.concat([["lang_ja", "肩書き（任意・日本語）例：韓国語の先生"], ["lang_ko", "肩書き（任意・韓国語）例：한국어 선생님"]], tail), null, discordField));
-    box.appendChild($("h3", { class: "yo-section", text: "運営スタッフ" }));
-    box.appendChild(listEditor("運営スタッフ", function () { return people.staff; }, Object.assign({ role_ja: "", role_ko: "" }, blank),
-      common.concat([["role_ja", "肩書き（任意・日本語）例：創設者・管理者"], ["role_ko", "肩書き（任意・韓国語）"]], tail), null, discordField));
+    box.appendChild(listEditor("先生", function () { return people.teachers; }, blank, fields, null, discordField));
     return box;
+  }
+  function roleOf(item) { return people.teachers.indexOf(item) >= 0 ? "teacher" : item.rank === "founder" ? "founder" : "staff"; }
+  // Role buttons: moving someone between the lists changes what they can do on the site and in the world.
+  function roleField(label, item) {
+    var cur = roleOf(item);
+    var pick = function (role) {
+      if (role === cur) return;
+      var name = String(item.name || "").trim() || "この人";
+      if (role === "founder" && !confirm(name + " さんを「創設者」にしますか？\n創設者は、名簿・役職・招待・リンクなど、すべてを変えられるようになります。")) return;
+      if (cur === "founder" && name === login && !confirm("自分の「創設者」を外しますか？（Discord アプリの持ち主のかなさんは、外しても管理者のままです）")) return;
+      people.teachers = people.teachers.filter(function (x) { return x !== item; });
+      people.staff = people.staff.filter(function (x) { return x !== item; });
+      if (role === "teacher") { delete item.rank; people.teachers.push(item); }
+      else { if (role === "founder") item.rank = "founder"; else delete item.rank; people.staff.push(item); }
+      changed(true); openPanel("people");
+    };
+    var opts = [["founder", "創設者"], ["staff", "運営スタッフ"], ["teacher", "先生"]];
+    return $("div", { class: "yo-field" }, [$("span", { text: label }), $("div", { class: "yo-tags" }, opts.map(function (o) {
+      return $("button", { type: "button", class: "yo-tag yo-role yo-role--" + o[0] + (cur === o[0] ? " is-on" : ""), text: (cur === o[0] ? "✓ " : "") + o[1],
+        on: { click: function () { pick(o[0]); } } });
+    }))]);
   }
   function openPanel(tab) {
     if (panel) panel.remove();
     panel = $("aside", { class: "yo-panel yo-ui" }, [
       $("div", { class: "yo-panel__head" }, [
-        $("h2", { text: TABS[tab][0] }),
+        $("h2", { text: tab === "settings" && !founder() ? "設定" : TABS[tab][0] }),
         $("button", { class: "yo-btn yo-btn--sm", type: "button", text: "閉じる", on: { click: function () { panel.remove(); panel = null; } } })
       ]),
       $("div", { class: "yo-panel__body" }, [TABS[tab][1]()])
@@ -639,12 +681,15 @@
   function buildBar() {
     var b = function (text, fn, attrs) { var a = attrs || {}; a.type = "button"; a.class = "yo-bar__btn " + (a.class || ""); a.text = text; a.on = { click: fn }; return $("button", a); };
     bar = $("div", { class: "yo-bar yo-ui" }, [
-      $("span", { class: "yo-bar__who", title: "管理者としてログイン中" + (whoUser ? "（@" + whoUser + "）" : ""), text: "● " + (who || login) + "（管理者）" }),
+      $("span", { class: "yo-bar__who", title: (founder() ? "創設者" : "運営スタッフ") + "としてログイン中" + (whoUser ? "（@" + whoUser + "）" : ""),
+        text: "● " + (who || login) + "（" + (founder() ? "創設者" : "運営") + "）" }),
       b("✎ 編集する", function () { setEditing(!editing); }, { "data-edit": "1" }),
       b("予定", function () { openPanel("schedule"); }),
       b("お知らせ", function () { openPanel("news"); }),
       b("質問", function () { openPanel("faq"); }),
-      b("名簿", async function () {
+      // 運営スタッフ edit their own profile (staff.js), not the roster.
+      !founder() && window.YORIMICHI_OPEN_PROFILE ? b("プロフィール", function () { window.YORIMICHI_OPEN_PROFILE(); }) : null,
+      !founder() ? null : b("名簿", async function () {
         if (!people) return;
         // Pick up registrations, approvals and members' own profile edits made since this page was opened.
         if (!keysDirty() && !peopleDirty()) {
@@ -652,7 +697,7 @@
         }
         openPanel("people");
       }),
-      b("リンク・設定", function () { openPanel("settings"); }),
+      b(founder() ? "リンク・設定" : "設定", function () { openPanel("settings"); }),
       b("保存済み", save, { "data-save": "1", class: "yo-bar__save" }),
       b("ログアウト", logout, { class: "yo-bar__ghost" })
     ]);
@@ -720,6 +765,9 @@
     ".yo-tags{display:flex;flex-wrap:wrap;gap:6px}",
     ".yo-tag{padding:6px 11px;border:1px solid var(--line);border-radius:999px;background:#fff;font:inherit;font-size:12.5px;font-weight:700;color:var(--ink);cursor:pointer}",
     ".yo-tag:hover{border-color:var(--accent)}.yo-tag.is-on{background:var(--accent);border-color:var(--accent);color:#fff}",
+    ".yo-role{font-size:13.5px;padding:8px 14px}",
+    ".yo-role--founder.is-on{background:linear-gradient(90deg,#ff6b8b,#3157ff);border-color:transparent}",
+    ".yo-role--teacher.is-on{background:#1f9d57;border-color:#1f9d57}",
     ".yo-card--app{border-color:rgba(49,87,255,.35);box-shadow:0 0 0 3px rgba(49,87,255,.06)}",
     ".yo-card--app p{white-space:pre-wrap}",
     ".yo-section{font-size:15px;margin:10px 2px 0}",

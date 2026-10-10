@@ -61,6 +61,7 @@
       "team.teachers": "先生", "team.teachersLead": "日本語・韓国語の授業を担当しています。",
       "team.staff": "運営スタッフ", "team.staffLead": "ワールドの運営やイベントの企画をしています。",
       "team.empty": "近日公開",
+      "role.founder": "創設者", "role.staff": "運営スタッフ", "role.teacher": "先生",
       "join.title": "今日、ちょっと寄り道しませんか。",
       "join.lead": "VRChat のグループに参加すると、授業やイベントのお知らせが届きます。",
       "guide.title": "はじめての方へ", "guide.lead": "YORIMICHI への行き方と、ワールドの楽しみ方を紹介します。",
@@ -129,6 +130,7 @@
       "team.teachers": "선생님", "team.teachersLead": "일본어·한국어 수업을 맡고 있어요.",
       "team.staff": "운영 스태프", "team.staffLead": "월드 운영과 이벤트 기획을 맡고 있어요.",
       "team.empty": "곧 공개될 예정이에요",
+      "role.founder": "설립자", "role.staff": "운영 스태프", "role.teacher": "선생님",
       "join.title": "오늘, 잠깐 들렀다 가실래요?",
       "join.lead": "VRChat 그룹에 가입하면 수업과 이벤트 소식을 받아 볼 수 있어요.",
       "guide.title": "처음 오신 분께", "guide.lead": "YORIMICHI에 오는 방법과 월드를 즐기는 방법을 알려 드릴게요.",
@@ -367,25 +369,34 @@
     ["event", "#イベント好き", "#이벤트 좋아해요"], ["night", "#夜によくいます", "#밤에 자주 있어요"],
     ["pc", "#PC", "#PC"], ["quest", "#Quest", "#Quest"]
   ];
+  // What an event is, chosen with a button (the title and 授業／イベント come from this). Same list in the staff API.
+  var CATS = [
+    ["ja_study", "日本語学習", "일본어 학습", "授業"], ["ko_study", "韓国語学習", "한국어 학습", "授業"],
+    ["ja_talk", "日本語会話", "일본어 회화", "授業"], ["ko_talk", "韓国語会話", "한국어 회화", "授業"],
+    ["exchange", "日韓交流会", "한일 교류회", "イベント"], ["culture", "文化紹介", "문화 소개", "イベント"],
+    ["game", "ゲーム・遊び", "게임·놀이", "イベント"], ["event", "イベント", "이벤트", "イベント"]
+  ];
   function tagLabel(key) { var t = TAGS.filter(function (x) { return x[0] === key; })[0]; return t ? t[lang === "ko" ? 2 : 1] : ""; }
-  function person(p, role) {
+  function person(p, role, founder) {
     // A single 自己紹介 (bio) written by the person comes first; older entries have bio_ja / bio_ko.
     var img = safeUrl(p.image), name = String(p.name || "").trim(), bio = String(p.bio || "").trim() || pick(p, "bio");
     var tags = (Array.isArray(p.tags) ? p.tags : []).map(tagLabel).filter(Boolean);
     var initial = name ? Array.from(name)[0] : "?";
     return '<article class="person"><div class="avatar">' +
       (img ? '<img src="' + esc(img) + '" alt="" loading="lazy">' : esc(initial)) + "</div><div>" +
-      '<div class="person__name">' + esc(name) + "</div>" + (role ? '<div class="person__role">' + esc(role) + "</div>" : "") +
+      '<div class="person__name">' + esc(name) + "</div>" + (role ? '<div class="person__role' + (founder ? " is-founder" : "") + '">' + esc(role) + "</div>" : "") +
       (tags.length ? '<div class="person__tags">' + tags.map(function (x) { return "<span>" + esc(x) + "</span>"; }).join("") + "</div>" : "") +
       (bio ? '<p class="person__bio">' + esc(bio) + "</p>" : "") + "</div></article>";
   }
   function renderTeam() {
     if (!el("staff-list")) return;
     var empty = '<p class="empty">' + esc(t("team.empty")) + "</p>";
-    var staff = (D.staff || []).filter(function (p) { return p.name && p.show !== false; });
+    // The badge is the role itself (創設者 / 運営スタッフ / 先生), set by the founder — not free text. Founders first.
+    var staff = (D.staff || []).filter(function (p) { return p.name && p.show !== false; })
+      .sort(function (a, b) { return (b.rank === "founder") - (a.rank === "founder"); });
     var teachers = (D.teachers || []).filter(function (p) { return p.name && p.show !== false; });
-    el("staff-list").innerHTML = staff.length ? staff.map(function (p) { return person(p, pick(p, "role")); }).join("") : empty;
-    el("teacher-list").innerHTML = teachers.length ? teachers.map(function (p) { return person(p, pick(p, "lang")); }).join("") : empty;
+    el("staff-list").innerHTML = staff.length ? staff.map(function (p) { return person(p, t(p.rank === "founder" ? "role.founder" : "role.staff"), p.rank === "founder"); }).join("") : empty;
+    el("teacher-list").innerHTML = teachers.length ? teachers.map(function (p) { return person(p, t("role.teacher")); }).join("") : empty;
   }
 
   function renderFaq() {
@@ -442,6 +453,7 @@
     startLogin: startStaffLogin,
     setLogin: setLogin,
     tags: TAGS,
+    scheduleCats: CATS,
     loadScript: function (src, done) { loadScript(src + "?v=" + BUST, done); }
   };
 

@@ -9,7 +9,9 @@
      saveTemplate(t)   admin: store a shared template (omit for teachers: they keep their own in this browser)
      removeTemplate(i) admin: remove shared template i
      add(items) / update(id, item) / remove(id)   may return promises
-     host              default 担当
+     host              default 担当の先生
+     hosts()           names offered as buttons for 担当の先生 (e.g. the teachers in the roster)
+     cats              [key, 日本語, 한국어, "授業" | "イベント"] — what the event is (title + type come from this)
      notice            text shown after adding (e.g. "「保存して公開」で公開されます")
      toast(msg, bad)   message helper */
 (function () {
@@ -24,16 +26,15 @@
     newOn: ["の予定を作る", " 일정 만들기"], editing: ["予定を編集", "일정 편집"],
     date: ["日付", "날짜"], start: ["開始", "시작"], length: ["長さ", "길이"], end: ["終了", "종료"],
     min30: ["30分", "30분"], h1: ["1時間", "1시간"], h15: ["1.5時間", "1.5시간"], h2: ["2時間", "2시간"],
-    type: ["種類", "종류"], lesson: ["授業", "수업"], event: ["イベント", "이벤트"],
+    lesson: ["授業", "수업"], event: ["イベント", "이벤트"],
     place: ["場所", "장소"], placeOther: ["その他の場所", "기타 장소"],
-    title_ja: ["タイトル（日本語）", "제목（일본어）"], title_ko: ["タイトル（韓国語）", "제목（한국어）"],
-    more: ["説明・担当（任意）", "설명·담당（선택）"],
-    desc_ja: ["説明（日本語）", "설명（일본어）"], desc_ko: ["説明（韓国語）", "설명（한국어）"], host: ["担当", "담당"],
+    cat: ["内容", "내용"], host: ["担当の先生", "담당 선생님"], hostOther: ["名前を入力", "이름 입력"],
+    desc: ["説明（任意）", "설명（선택）"],
     repeat: ["くり返し", "반복"], once: ["1回だけ", "1회만"], weekly: ["毎週・{n}回", "매주·{n}회"],
     add: ["予定を追加", "일정 추가"], addN: ["{n}件の予定を追加", "일정 {n}개 추가"], saveEdit: ["変更を保存", "변경 저장"], cancel: ["やめる", "취소"],
     asTemplate: ["テンプレートとして保存", "템플릿으로 저장"], templateSaved: ["テンプレートに追加しました", "템플릿에 추가했습니다"],
     removeTemplate: ["このテンプレートを消しますか？", "이 템플릿을 삭제할까요?"],
-    needTitle: ["タイトルを入れてください（日本語か韓国語のどちらか）", "제목을 입력해 주세요（일본어 또는 한국어）"],
+    needTitle: ["「内容」を選んでください", "'내용'을 선택해 주세요"],
     needDate: ["日付を選んでください", "날짜를 선택해 주세요"],
     clash: ["同じ時間に {place} で「{title}」があります", "같은 시간에 {place}에서 '{title}' 일정이 있습니다"],
     listTitle: ["この月の予定", "이번 달 일정"], none: ["この月の予定はまだありません", "이번 달 일정이 아직 없습니다"],
@@ -41,9 +42,9 @@
     confirmDel: ["この予定を削除しますか？", "이 일정을 삭제할까요?"], added: ["追加しました", "추가했습니다"], saved: ["保存しました", "저장했습니다"], deleted: ["削除しました", "삭제했습니다"]
   };
   var BUILTIN = [
-    { title_ja: "日本語の授業", title_ko: "일본어 수업", type: "授業", start: "21:00", dur: 60, place: "1-1" },
-    { title_ja: "韓国語の授業", title_ko: "한국어 수업", type: "授業", start: "21:00", dur: 60, place: "1-2" },
-    { title_ja: "日韓交流タイム", title_ko: "한일 교류 타임", type: "イベント", start: "22:00", dur: 60, place: "中央広場" }
+    { cat: "ja_study", start: "21:00", dur: 60, place: "1-1" },
+    { cat: "ko_study", start: "21:00", dur: 60, place: "1-2" },
+    { cat: "exchange", start: "22:00", dur: 60, place: "中央広場" }
   ];
   var PLACES = ["1-1", "1-2", "1-3", "1-4", "1-5", "1-6", "中央広場"];
   var STARTS = ["19:00", "20:00", "20:30", "21:00", "21:30", "22:00"];
@@ -77,16 +78,23 @@
     var today = todayYmd();
     var month = today.slice(0, 7);      // "YYYY-MM" shown
     var form = null;                     // { mode: "new" | "edit", id, data, weeks }
+    var CATS = opts.cats || [];
+    var catOf = function (key) { return CATS.filter(function (c) { return c[0] === key; })[0]; };
+    // Choosing 内容 fills in both titles and 授業／イベント.
+    function setCat(d, key) { var c = catOf(key); if (!c) return; d.cat = key; d.title_ja = c[1]; d.title_ko = c[2]; d.type = c[3]; }
+    function titleOf(x) { var c = catOf(x.cat); return c ? c[ko() ? 2 : 1] : (ko() ? x.title_ko || x.title_ja : x.title_ja || x.title_ko) || ""; }
 
     function myTemplates() {
       if (opts.saveTemplate) return [];
       try { return JSON.parse(localStorage.getItem("yorimichi-templates") || "[]"); } catch (e) { return []; }
     }
     function setMyTemplates(list) { try { localStorage.setItem("yorimichi-templates", JSON.stringify(list)); } catch (e) { /* ignore */ } }
-    function blank(date) { return { date: date || "", start: "21:00", end: "22:00", type: "授業", title_ja: "", title_ko: "", desc_ja: "", desc_ko: "", host: opts.host || "", place: "" }; }
+    function blank(date) { return { date: date || "", start: "21:00", end: "22:00", type: "授業", cat: "", title_ja: "", title_ko: "", desc: "", host: opts.host || "", place: "" }; }
     function fromTemplate(tp, date) {
       var d = blank(date);
-      ["title_ja", "title_ko", "desc_ja", "desc_ko", "type", "place", "host"].forEach(function (k) { if (tp[k]) d[k] = tp[k]; });
+      ["title_ja", "title_ko", "type", "place", "host", "desc"].forEach(function (k) { if (tp[k]) d[k] = tp[k]; });
+      if (!d.desc && (tp.desc_ja || tp.desc_ko)) d.desc = tp.desc_ja || tp.desc_ko;
+      if (tp.cat) setCat(d, tp.cat);
       d.start = tp.start || d.start; d.end = fromMin(toMin(d.start) + (tp.dur || 60));
       if (!d.host) d.host = opts.host || "";
       return d;
@@ -96,7 +104,12 @@
       if (date) month = date.slice(0, 7);
       draw(true);
     }
-    function openEdit(item) { form = { mode: "edit", id: item.id, weeks: 1, data: JSON.parse(JSON.stringify(item)) }; month = String(item.date).slice(0, 7); draw(true); }
+    function openEdit(item) {
+      var d = JSON.parse(JSON.stringify(item));
+      if (!d.desc && (d.desc_ja || d.desc_ko)) d.desc = d.desc_ja || d.desc_ko;   // older events had two descriptions
+      delete d.desc_ja; delete d.desc_ko;
+      form = { mode: "edit", id: item.id, weeks: 1, data: d }; month = String(item.date).slice(0, 7); draw(true);
+    }
 
     /* ---------- calendar ---------- */
     function calendar() {
@@ -113,7 +126,7 @@
           var cls = "yo-se__day" + (date === today ? " is-today" : "") + (form && form.data.date === date ? " is-sel" : "") + (date < today ? " is-past" : "");
           var dots = $("span", { class: "yo-se__dots" });
           evs.slice(0, 3).forEach(function (x) { dots.appendChild($("i", { class: x.type === "イベント" ? "is-event" : "" })); });
-          grid.appendChild($("button", { type: "button", class: cls, title: evs.map(function (x) { return x.start + " " + (ko() ? x.title_ko || x.title_ja : x.title_ja || x.title_ko); }).join("\n"),
+          grid.appendChild($("button", { type: "button", class: cls, title: evs.map(function (x) { return x.start + " " + titleOf(x); }).join("\n"),
             on: { click: function () { if (form && form.mode === "new") { form.data.date = date; draw(true); } else openNew(date); } } },
             [$("span", { text: String(+date.slice(8)) }), dots]));
         })(month + "-" + String(d).padStart(2, "0"));
@@ -136,7 +149,7 @@
       var date = form && form.mode === "new" ? form.data.date : "";
       var chip = function (tp, label, onRemove) {
         var b = $("button", { type: "button", class: "yo-se__tpl", on: { click: function () { openNew(date || nextDateFor(tp), tp); } } }, [
-          $("strong", { text: label || (ko() ? tp.title_ko || tp.title_ja : tp.title_ja || tp.title_ko) }),
+          $("strong", { text: label || titleOf(tp) }),
           tp.start ? $("span", { text: tp.start + "〜" + fromMin(toMin(tp.start) + (tp.dur || 60)) + (tp.place ? " ・ " + tp.place : "") }) : null
         ]);
         if (!onRemove) return b;
@@ -184,7 +197,7 @@
         var xs = toMin(x.start), xe = xs + durOf(x);
         return xs < e && s < xe;
       })[0];
-      clashBox.textContent = other ? "⚠ " + t("clash", { place: other.place || "—", title: ko() ? other.title_ko || other.title_ja : other.title_ja || other.title_ko }) : "";
+      clashBox.textContent = other ? "⚠ " + t("clash", { place: other.place || "—", title: titleOf(other) }) : "";
       clashBox.hidden = !other;
     }
     function formBox() {
@@ -195,9 +208,13 @@
       var setDur = function (m) { d.end = fromMin(toMin(d.start) + m); draw(true); };
       var placeIn = input(d, "place");
       placeIn.placeholder = t("placeOther");
-      var more = $("details", { class: "yo-se__more" }, [$("summary", { text: t("more") }),
-        field("desc_ja", input(d, "desc_ja", "textarea")), field("desc_ko", input(d, "desc_ko", "textarea")), field("host", input(d, "host"))]);
-      if (d.desc_ja || d.desc_ko) more.open = true;
+      var hostIn = input(d, "host");
+      hostIn.placeholder = t("hostOther");
+      var hosts = (opts.hosts ? opts.hosts() : []).filter(Boolean);
+      var catChips = $("div", { class: "yo-se__chips" }, CATS.map(function (c) {
+        return $("button", { type: "button", class: "yo-se__chip yo-se__chip--cat" + (c[3] === "イベント" ? " is-event" : "") + (d.cat === c[0] ? " is-on" : ""),
+          text: c[ko() ? 2 : 1], on: { click: function () { setCat(d, c[0]); draw(true); } } });
+      }));
       clashBox = $("p", { class: "yo-se__clash", hidden: "hidden" });
       var weeksSel = $("select", { class: "yo-input" });
       [1, 2, 4, 8, 12].forEach(function (n) { weeksSel.appendChild($("option", { value: String(n), text: n === 1 ? t("once") : t("weekly", { n: n }) })); });
@@ -206,7 +223,7 @@
       weeksSel.addEventListener("change", function () { form.weeks = +weeksSel.value; mainBtn.textContent = form.weeks > 1 ? t("addN", { n: form.weeks }) : t("add"); });
       mainBtn.addEventListener("click", async function () {
         if (!d.date) { toast(t("needDate"), true); return; }
-        if (!String(d.title_ja || "").trim() && !String(d.title_ko || "").trim()) { toast(t("needTitle"), true); return; }
+        if (!d.cat && !String(d.title_ja || "").trim() && !String(d.title_ko || "").trim()) { toast(t("needTitle"), true); return; }
         mainBtn.disabled = true;
         try {
           if (isNew) {
@@ -227,17 +244,18 @@
           $("button", { type: "button", class: "yo-btn yo-btn--sm", text: t("cancel"), on: { click: function () { form = null; draw(); } } })
         ]),
         field("date", input(d, "date", "date")),
+        $("div", { class: "yo-field" }, [$("span", { text: t("cat") + (d.cat || d.title_ja ? "（" + titleOf(d) + " ・ " + t(d.type === "イベント" ? "event" : "lesson") + "）" : "") }), catChips]),
         $("div", { class: "yo-field" }, [$("span", { text: t("start") + "（" + d.start + "）" }), chips(STARTS, d.start, "start", setStart), input(d, "start", "time")]),
         $("div", { class: "yo-field" }, [$("span", { text: t("length") + "（" + t("end") + " " + d.end + "）" }), chips(DURS, dur, "length", setDur)]),
-        $("div", { class: "yo-field" }, [$("span", { text: t("type") }), chips([["授業", "lesson"], ["イベント", "event"]], d.type, "type", function (v) { d.type = v; draw(true); })]),
         $("div", { class: "yo-field" }, [$("span", { text: t("place") }), chips(PLACES, d.place, "place", function (v) { d.place = v; draw(true); }), placeIn]),
-        field("title_ja", input(d, "title_ja")), field("title_ko", input(d, "title_ko")),
-        more, clashBox,
+        $("div", { class: "yo-field" }, [$("span", { text: t("host") }), hosts.length ? chips(hosts, d.host, "host", function (v) { d.host = v; draw(true); }) : null, hostIn]),
+        field("desc", input(d, "desc", "textarea")),
+        clashBox,
         isNew ? $("label", { class: "yo-field" }, [$("span", { text: t("repeat") }), weeksSel]) : null,
         $("div", { class: "yo-row yo-row--end yo-se__actions" }, [
           $("button", { type: "button", class: "yo-btn yo-btn--sm", text: t("asTemplate"), on: { click: function () {
-            var tp = { title_ja: d.title_ja, title_ko: d.title_ko, desc_ja: d.desc_ja, desc_ko: d.desc_ko, type: d.type, start: d.start, dur: durOf(d), place: d.place, host: d.host };
-            if (!tp.title_ja && !tp.title_ko) { toast(t("needTitle"), true); return; }
+            var tp = { cat: d.cat, title_ja: d.title_ja, title_ko: d.title_ko, desc: d.desc, type: d.type, start: d.start, dur: durOf(d), place: d.place, host: d.host };
+            if (!tp.cat && !tp.title_ja && !tp.title_ko) { toast(t("needTitle"), true); return; }
             if (opts.saveTemplate) opts.saveTemplate(tp); else { var l = myTemplates(); l.push(tp); setMyTemplates(l); }
             toast(t("templateSaved")); draw(true);
           } } }),
@@ -264,7 +282,7 @@
           $("div", { class: "yo-se__when" }, [$("strong", { text: fmtDate(x.date) }), $("span", { text: x.start + (x.end ? "〜" + x.end : "") })]),
           $("div", { class: "yo-se__what" }, [
             $("span", { class: "yo-se__type" + (x.type === "イベント" ? " is-event" : ""), text: x.type === "イベント" ? t("event") : t("lesson") }),
-            $("strong", { text: ko() ? x.title_ko || x.title_ja : x.title_ja || x.title_ko }),
+            $("strong", { text: titleOf(x) }),
             $("span", { class: "yo-muted", text: [x.place, x.host].filter(Boolean).join(" ・ ") + (mine ? "" : "（" + t("others") + "）") })
           ]),
           $("div", { class: "yo-se__btns" }, [
@@ -325,6 +343,7 @@
     ".yo-se__chips{display:flex;flex-wrap:wrap;gap:5px}",
     ".yo-se__chip{padding:6px 11px;border:1px solid var(--line);border-radius:999px;background:#fff;font:inherit;font-size:13px;font-weight:700;color:var(--ink);cursor:pointer}",
     ".yo-se__chip:hover{border-color:var(--accent)}.yo-se__chip.is-on{background:var(--accent);border-color:var(--accent);color:#fff}",
+    ".yo-se__chip--cat.is-event:not(.is-on){border-color:rgba(255,107,139,.45)}.yo-se__chip--cat.is-event.is-on{background:#e8537a;border-color:#e8537a}",
     ".yo-se__more summary{cursor:pointer;font-size:12.5px;font-weight:700;color:var(--muted);padding:2px 0}.yo-se__more[open]{display:grid;gap:8px}",
     ".yo-se__clash{margin:0;padding:8px 10px;border-radius:10px;background:#fff4e5;color:#9a5b00;font-size:12.5px;font-weight:700}",
     ".yo-se__actions{flex-wrap:wrap}",
