@@ -73,7 +73,7 @@
       "guide.t3.title": "教室と授業", "guide.t3.body": "教室の戸をクリックすると出入りできます。授業中は先生が鍵を掛けるので、外からは入れません。",
       "guide.t4.title": "声のエリア", "guide.t4.body": "個室や教室の中の声は外に聞こえず、外の声も中には届きません。",
       "faq.title": "よくある質問",
-      "footer.tag": "日本と韓国が出会う、VRChat の交流ラウンジ。", "footer.pages": "ページ", "footer.links": "リンク", "footer.staff": "スタッフ専用",
+      "footer.tag": "日本と韓国が出会う、VRChat の交流ラウンジ。", "footer.pages": "ページ", "footer.links": "リンク", "footer.staff": "スタッフ専用", "footer.login": "スタッフログイン",
       "updated": "最終更新",
       "dow": ["日", "月", "火", "水", "木", "金", "土"]
     },
@@ -138,7 +138,7 @@
       "guide.t3.title": "교실과 수업", "guide.t3.body": "교실 문을 클릭하면 드나들 수 있어요. 수업 중에는 선생님이 문을 잠그기 때문에 밖에서는 들어갈 수 없어요.",
       "guide.t4.title": "목소리 구역", "guide.t4.body": "개인실과 교실 안의 목소리는 밖으로 들리지 않고, 밖의 소리도 안으로 들어오지 않아요.",
       "faq.title": "자주 묻는 질문",
-      "footer.tag": "일본과 한국이 만나는 VRChat 교류 라운지.", "footer.pages": "페이지", "footer.links": "링크", "footer.staff": "스태프 전용",
+      "footer.tag": "일본과 한국이 만나는 VRChat 교류 라운지.", "footer.pages": "페이지", "footer.links": "링크", "footer.staff": "스태프 전용", "footer.login": "스태프 로그인",
       "updated": "최종 업데이트",
       "dow": ["일", "월", "화", "수", "목", "금", "토"]
     }
@@ -226,7 +226,19 @@
       "</div></div>" +
       '<div class="container footer__bottom"><small>© <span id="year">2026</span> YORIMICHI</small>' +
       '<a class="footer__staff" data-link="staff_page_url" href="#"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 11V8a5 5 0 0 1 10 0v3M5 11h14v10H5z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg><span data-i18n="footer.staff"></span></a>' +
+      '<button type="button" class="footer__login" id="staff-login" data-i18n="footer.login" hidden></button>' +
       '<small class="muted" id="updated"></small></div></footer>';
+  }
+
+  /* ---------- staff login (Discord, through the staff API) ---------- */
+  var SESSION_KEY = "yorimichi-session";
+  function staffApi() { return String(S.staff_api || "").trim().replace(/\/+$/, ""); }
+  function hasSession() { try { return !!localStorage.getItem(SESSION_KEY); } catch (e) { return false; } }
+  function startStaffLogin() {
+    var api = staffApi(); if (!api) return;
+    var n = Array.from(crypto.getRandomValues(new Uint8Array(12)), function (b) { return b.toString(16).padStart(2, "0"); }).join("");
+    try { sessionStorage.setItem("yorimichi-login-n", n); } catch (e) { /* ignore */ }
+    location.href = api + "/login?n=" + n + "&r=" + encodeURIComponent(location.origin + location.pathname + location.search);
   }
 
   /* ---------- text, links, images ---------- */
@@ -251,6 +263,8 @@
       if (url) { a.href = url; a.target = "_blank"; a.rel = "noopener"; a.hidden = false; }
       else { a.removeAttribute("target"); a.hidden = !isBtn; }
     });
+    var login = el("staff-login");
+    if (login) login.hidden = !staffApi() || hasSession() || !/^https?:$/.test(location.protocol);
     var linkCol = el("footer-links");
     if (linkCol) linkCol.hidden = !linkCol.querySelector("a:not([hidden])");
     document.querySelectorAll("[data-img]").forEach(function (img) {
@@ -425,6 +439,11 @@
   var signedIn = false;
   try { signedIn = !!localStorage.getItem("yorimichi-gh-token"); } catch (e) { /* ignore */ }
   if (signedIn || /[?&]admin\b/.test(location.search)) loadScript("assets/js/admin.js?v=" + BUST);
+  else if (hasSession() || /[#&]yo_(session|error)=/.test(location.hash)) {
+    // Teachers / staff signed in with Discord (or just coming back from the Discord login).
+    loadScript("assets/js/staff.js?v=" + BUST);
+  }
+  el("staff-login").addEventListener("click", startStaffLogin);
   }
 
   /* ---------- load data, then start ---------- */

@@ -18,6 +18,8 @@
 
   var token = null, login = "", draft = null, saved = "", editing = false;
   var people = null, peopleSaved = "";   // roster draft (teachers / staff) and its last saved form
+  var KEYS_PATH = "data/staff-logins.json";
+  var keys = null, keysSaved = "";       // Discord accounts of teachers / staff (SHA-256 only) for the staff API
   var pending = {};   // settings key -> data URL of a picture chosen but not uploaded yet
   var preview = {};   // uploaded path -> data URL (shown until GitHub Pages has the new file)
 
@@ -123,7 +125,9 @@
 
   /* ---------- content ---------- */
   function peopleDirty() { return people && JSON.stringify(people) !== peopleSaved; }
-  function dirty() { return draft && (JSON.stringify(draft) !== saved || Object.keys(pending).length > 0 || peopleDirty()); }
+  function keysDirty() { return keys && JSON.stringify(keys) !== keysSaved; }
+  function dirty() { return draft && (JSON.stringify(draft) !== saved || Object.keys(pending).length > 0 || peopleDirty() || keysDirty()); }
+  function newId() { return "a" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
   function view() {
     // The page shows the draft; pictures that were just uploaded are shown from memory until Pages publishes them.
     var v = clone(draft);
@@ -151,12 +155,39 @@
     draft = clone(obj);
     ["settings", "texts"].forEach(function (k) { if (!draft[k]) draft[k] = {}; });
     ["schedule", "news", "faq"].forEach(function (k) { if (!draft[k]) draft[k] = []; });
+    // Every event gets an id so teachers' changes can be merged with this draft on save.
+    draft.schedule.forEach(function (x) { if (!x.id) { x.id = newId(); freshIds[x.id] = true; } });
     saved = JSON.stringify(draft);
+    var kf = await getFile(KEYS_PATH);
+    keys = kf && kf.text ? JSON.parse(kf.text) : { accounts: [] };
+    if (!keys.accounts) keys.accounts = [];
+    keysSaved = JSON.stringify(keys);
     var pf = await getFile(PEOPLE_PATH);
     var po = pf && pf.text ? parseJs(pf.text) : (window.YORIMICHI_PEOPLE || {});
     people = { teachers: po.teachers || [], staff: po.staff || [] };
     peopleSaved = JSON.stringify(people);
     SITE.setContent(view());
+  }
+
+  // Teachers may have added / changed / deleted their events (through the schedule API) since this page loaded.
+  // Keep their changes unless the same event was also edited here.
+  var freshIds = {};   // ids given on load to events that had none yet (not in the repository's copy)
+  function mergeSchedule(remote) {
+    var base = JSON.parse(saved).schedule || [];
+    var byId = function (list) { var m = {}; list.forEach(function (x) { if (x.id) m[x.id] = x; }); return m; };
+    var same = function (a, b) { return JSON.stringify(a) === JSON.stringify(b); };
+    var B = byId(base), R = byId(remote), out = [];
+    draft.schedule.forEach(function (x) {
+      var b = B[x.id], r = R[x.id];
+      if (!b || freshIds[x.id]) out.push(x);          // added here, or not tracked by id yet
+      else if (!r) { if (!same(x, b)) out.push(x); }  // deleted by a teacher: keep only if edited here
+      else out.push(same(x, b) ? r : x);              // changed by a teacher and not here: take theirs
+    });
+    remote.forEach(function (r) {                      // added by a teacher
+      if (r.id && !B[r.id] && !out.some(function (x) { return x.id === r.id; })) out.push(r);
+    });
+    out.sort(function (a, b) { return String(a.date + a.start).localeCompare(String(b.date + b.start)); });
+    draft.schedule = out;
   }
 
   function jstStamp() { return new Date(Date.now() + 9 * 3600000).toISOString().slice(0, 16).replace("T", " "); }
@@ -203,11 +234,19 @@
       // 3) content
       if (JSON.stringify(draft) !== saved) {
         var cur = await getFile(CONTENT_PATH);
+        if (cur && cur.text) mergeSchedule(parseJs(cur.text).schedule || []);
         var text = CONTENT_HEAD + JSON.stringify(draft, null, 2) + ";\n";
         await putFile(CONTENT_PATH, toB64(text), "サイトを編集（" + login + "）", cur && cur.sha);
+        freshIds = {};
       }
       // 3b) roster (site + world)
       if (peopleDirty()) await savePeople();
+      // 3c) teachers' login codes
+      if (keysDirty()) {
+        var kf = await getFile(KEYS_PATH);
+        await putFile(KEYS_PATH, toB64(JSON.stringify(keys, null, 2) + "\n"), "スタッフログインの Discord を更新", kf && kf.sha);
+        keysSaved = JSON.stringify(keys);
+      }
       // 4) custom domain
       var oldDomain = (JSON.parse(saved).settings || {}).domain || "", domain = String(draft.settings.domain || "").trim();
       if (domain !== oldDomain) {
@@ -340,18 +379,19 @@
     if (f[2] === "bool") return field(f[1], item[f[0]] === false ? "表示しない" : "表示する", function (v) { item[f[0]] = v === "表示する"; }, "select", ["表示する", "表示しない"]);
     return field(f[1], item[f[0]], function (v) { item[f[0]] = v; }, f[2], f[3]);
   }
-  function listEditor(title, listKey, blank, fields, note) {
+  function listEditor(title, listKey, blank, fields, note, extra) {
     var body = $("div", { class: "yo-list" });
     var arr = function () { return typeof listKey === "function" ? listKey() : draft[listKey]; };
     function draw() {
       body.innerHTML = "";
       body.appendChild($("button", { class: "yo-btn yo-btn--primary yo-btn--block", type: "button", text: "＋ " + title + "を追加",
-        on: { click: function () { arr().unshift(clone(blank)); changed(true); draw(); } } }));
+        on: { click: function () { arr().unshift(typeof blank === "function" ? blank() : clone(blank)); changed(true); draw(); } } }));
       if (note) body.appendChild($("p", { class: "yo-muted", text: note }));
       if (!arr().length) body.appendChild($("p", { class: "yo-empty", text: "まだありません" }));
       arr().forEach(function (item, i) {
         var card = $("div", { class: "yo-card" });
         fields.forEach(function (f) { card.appendChild(itemField(item, f)); });
+        if (extra) card.appendChild(extra(item));
         card.appendChild($("div", { class: "yo-row yo-row--end" }, [
           i > 0 ? $("button", { class: "yo-btn yo-btn--sm", type: "button", text: "↑", title: "上へ", on: { click: function () { var a = arr(); a.splice(i - 1, 0, a.splice(i, 1)[0]); changed(true); draw(); } } }) : null,
           $("button", { class: "yo-btn yo-btn--sm yo-btn--danger", type: "button", text: "削除",
@@ -374,6 +414,8 @@
     ]);
     group("トップのお知らせバー", [f("announcement_ja", "日本語（空なら非表示）", "textarea"), f("announcement_ko", "韓国語", "textarea")]);
     group("募集状況（採用情報ページ）", [f("recruit_teacher", "先生", "select", ["募集中", "停止"]), f("recruit_staff", "運営スタッフ", "select", ["募集中", "停止"])]);
+    group("スタッフログイン（Discord）", [f("staff_api", "Cloudflare の API の URL（空ならフッターのログインは表示されません）"),
+      $("p", { class: "yo-muted", text: "だれがログインできるかは「名簿」の各先生・運営スタッフの Discord 欄で決めます。" })]);
     group("独自ドメイン", [f("domain", "例：yorimichi.jp（空なら kanasan044.github.io）"),
       $("p", { class: "yo-muted", text: "ドメイン会社側の設定も必要です。設定するときは Claude に聞いてください。" })]);
     box.appendChild($("p", { class: "yo-muted", text: "写真は「編集する」をオンにして、ページの写真の上のボタンから変えられます。" }));
@@ -381,7 +423,7 @@
   }
   var TABS = {
     schedule: ["予定", function () {
-      return listEditor("予定", "schedule", { date: "", start: "21:00", end: "22:00", type: "授業", title_ja: "", title_ko: "", desc_ja: "", desc_ko: "", host: "", place: "" }, [
+      return listEditor("予定", "schedule", function () { return { id: newId(), date: "", start: "21:00", end: "22:00", type: "授業", title_ja: "", title_ko: "", desc_ja: "", desc_ko: "", host: "", place: "" }; }, [
         ["date", "日付", "date"], ["start", "開始", "time"], ["end", "終了", "time"], ["type", "種類", "select", ["授業", "イベント"]],
         ["title_ja", "タイトル（日本語）"], ["title_ko", "タイトル（韓国語）"], ["desc_ja", "説明（日本語）", "textarea"], ["desc_ko", "説明（韓国語）", "textarea"],
         ["host", "担当"], ["place", "場所"]], "終わった予定はサイトに自動で表示されなくなります。");
@@ -398,6 +440,48 @@
     settings: ["リンク・設定", settingsEditor],
     people: ["先生・運営スタッフ名簿", peopleEditor]
   };
+  /* Which Discord account each teacher / staff member signs in with. The repository is public, so only a SHA-256
+     of the Discord user name (or user ID) is saved, plus a short hint for this screen. */
+  async function sha256(s) {
+    var d = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(s));
+    return Array.from(new Uint8Array(d)).map(function (b) { return b.toString(16).padStart(2, "0"); }).join("");
+  }
+  function discordField(item) {
+    var wrap = $("div", { class: "yo-field" });
+    function draw() {
+      wrap.innerHTML = "";
+      var name = String(item.name || "").trim();
+      var acc = keys.accounts.filter(function (a) { return a.name === name; })[0];
+      wrap.appendChild($("span", { text: "ログインに使う Discord（ユーザー名）" }));
+      if (acc) {
+        wrap.appendChild($("div", { class: "yo-row" }, [
+          $("span", { class: "yo-muted", text: "登録済み：" + acc.hint + "（" + acc.set + "）" }),
+          $("button", { class: "yo-btn yo-btn--sm yo-btn--danger", type: "button", text: "外す", on: { click: function () {
+            if (!confirm(name + " さんの Discord ログインを外しますか？（保存するとログインできなくなります）")) return;
+            keys.accounts = keys.accounts.filter(function (a) { return a !== acc; });
+            changed(true); draw();
+          } } })
+        ]));
+        return;
+      }
+      var input = $("input", { class: "yo-input", type: "text", placeholder: "例：kanasan044（@ は不要）", autocomplete: "off" });
+      wrap.appendChild($("div", { class: "yo-row" }, [input,
+        $("button", { class: "yo-btn yo-btn--sm yo-nowrap", type: "button", text: "登録", on: { click: async function () {
+          var v = input.value.trim().replace(/^@/, "").toLowerCase();
+          name = String(item.name || "").trim();   // the name may have been typed after this field was drawn
+          if (!name) { toast("先に VRChat の表示名を書いてください", false, true); return; }
+          if (!v) return;
+          if (!/^\d{15,22}$/.test(v) && !/^[a-z0-9_.]{2,32}$/.test(v)) { toast("Discord のユーザー名は、英小文字・数字・_ と . だけです（表示名ではなくユーザー名を入れてください）", false, true); return; }
+          keys.accounts = keys.accounts.filter(function (a) { return a.name !== name; });
+          keys.accounts.push({ name: name, h: await sha256("discord:" + v), hint: "@" + v.slice(0, 2) + "…", set: jstStamp().slice(0, 10) });
+          changed(true); draw();
+        } } })
+      ]));
+      wrap.appendChild($("span", { class: "yo-muted", text: "Discord の「ユーザー名」（プロフィールの @ の後ろ）です。表示名ではありません。" }));
+    }
+    draw();
+    return wrap;
+  }
   function peopleEditor() {
     var box = $("div", { class: "yo-list" });
     var common = [["name", "VRChat の表示名（1文字も違わないように）"]];
@@ -409,10 +493,10 @@
     ]));
     box.appendChild($("h3", { class: "yo-section", text: "先生" }));
     box.appendChild(listEditor("先生", function () { return people.teachers; }, Object.assign({ lang_ja: "", lang_ko: "" }, blank),
-      common.concat([["lang_ja", "担当（日本語）例：日本語の先生"], ["lang_ko", "担当（韓国語）例：일본어 선생님"]], tail)));
+      common.concat([["lang_ja", "担当（日本語）例：日本語の先生"], ["lang_ko", "担当（韓国語）例：일본어 선생님"]], tail), null, discordField));
     box.appendChild($("h3", { class: "yo-section", text: "運営スタッフ" }));
     box.appendChild(listEditor("運営スタッフ", function () { return people.staff; }, Object.assign({ role_ja: "", role_ko: "" }, blank),
-      common.concat([["role_ja", "役割（日本語）"], ["role_ko", "役割（韓国語）"]], tail)));
+      common.concat([["role_ja", "役割（日本語）"], ["role_ko", "役割（韓国語）"]], tail), null, discordField));
     return box;
   }
   function openPanel(tab) {
@@ -509,6 +593,8 @@
     ".yo-muted{font-size:13px;color:var(--muted);margin:0}",
     ".yo-thumb{width:56px;height:56px;flex:none;display:grid;place-items:center;overflow:hidden;border-radius:50%;background:var(--soft);border:1px solid var(--line);font-size:10.5px;color:var(--muted)}",
     ".yo-thumb img{width:100%;height:100%;object-fit:cover}",
+    ".yo-code{margin:4px 0;padding:14px;border-radius:12px;background:var(--soft);font:700 20px/1.3 ui-monospace,Consolas,monospace;letter-spacing:.06em;text-align:center;user-select:all}",
+    ".yo-nowrap{white-space:nowrap;flex:none}",
     ".yo-section{font-size:15px;margin:10px 2px 0}",
     ".yo-note{display:grid;gap:4px;padding:14px 16px;border-radius:14px;background:rgba(49,87,255,.07);font-size:13px;color:var(--ink)}",
     ".yo-note span{color:var(--muted)}",
