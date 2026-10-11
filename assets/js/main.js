@@ -184,11 +184,12 @@
   var filter = "all";
 
   function t(key) { return (T[lang] && T[lang][key]) || T.ja[key] || ""; }
-  // ja / ko variant of a sheet field ("title" -> title_ja / title_ko), falling back to the other language.
+  // A single field shared by both languages ("title"), else the ja / ko variant (title_ja / title_ko) with the
+  // other language as fallback.
   function pick(o, base) {
     if (!o) return "";
-    var a = o[base + "_" + lang], b = o[base + "_" + (lang === "ja" ? "ko" : "ja")];
-    return (a && String(a).trim()) || (b && String(b).trim()) || (o[base] ? String(o[base]) : "");
+    var one = o[base], a = o[base + "_" + lang], b = o[base + "_" + (lang === "ja" ? "ko" : "ja")];
+    return (one && String(one).trim()) || (a && String(a).trim()) || (b && String(b).trim()) || "";
   }
   function esc(s) {
     return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {

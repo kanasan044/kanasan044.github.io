@@ -35,6 +35,12 @@
     return n;
   }
   function clone(o) { return JSON.parse(JSON.stringify(o)); }
+  // Moves the older base_ja / base_ko pair into the single field `base` (both joined with sep when they differ).
+  function oneField(o, base, sep) {
+    var ja = String(o[base + "_ja"] || "").trim(), ko = String(o[base + "_ko"] || "").trim();
+    if (!String(o[base] || "").trim() && (ja || ko)) o[base] = ja && ko && ja !== ko ? ja + sep + ko : ja || ko;
+    delete o[base + "_ja"]; delete o[base + "_ko"];
+  }
 
   /* ---------- staff API (saves to GitHub for us) ---------- */
   var ERRORS = { github_409: "ほかの画面で同時に保存されました。もう一度「保存して公開」を押してください",
@@ -133,6 +139,11 @@
     ["schedule", "news", "faq"].forEach(function (k) { if (!draft[k]) draft[k] = []; });
     // Every event gets an id so teachers' changes can be merged with this draft on save.
     draft.schedule.forEach(function (x) { if (!x.id) { x.id = newId(); freshIds[x.id] = true; } });
+    // お知らせ・質問・お知らせバー used to have Japanese and Korean boxes: join them into the single box (both texts
+    // kept). Counted as already saved, so the joined version goes up with the next 「保存して公開」.
+    draft.news.forEach(function (n) { oneField(n, "title", " / "); oneField(n, "body", "\n"); });
+    draft.faq.forEach(function (f) { oneField(f, "q", " / "); oneField(f, "a", "\n"); });
+    oneField(draft.settings, "announcement", " / ");
     saved = JSON.stringify(draft);
     if (founder()) await loadPeople();
     SITE.setContent(view());
@@ -448,7 +459,7 @@
       f("recruit_form_url", "応募フォーム（Google フォーム）のURL"), f("staff_page_url", "スタッフ専用ページのURL"),
       f("discord_url", "Discord のURL（空なら非表示）"), f("x_url", "X のURL（空なら非表示）")
     ]);
-    group("トップのお知らせバー", [f("announcement_ja", "日本語（空なら非表示）", "textarea"), f("announcement_ko", "韓国語", "textarea")]);
+    group("トップのお知らせバー", [f("announcement", "お知らせ（空なら非表示・日本語と韓国語の両方のページに同じ文が出ます）", "textarea")]);
     group("募集状況（採用情報ページ）", [f("recruit_teacher", "先生", "select", ["募集中", "停止"]), f("recruit_staff", "運営スタッフ", "select", ["募集中", "停止"])]);
     if (!founder()) {
       box.appendChild($("p", { class: "yo-muted", text: "リンク・名簿・役職などの設定は、創設者（かなさん）だけが変えられます。" }));
@@ -502,13 +513,13 @@
       });
     }],
     news: ["お知らせ", function () {
-      return listEditor("お知らせ", "news", { date: new Date().toISOString().slice(0, 10), title_ja: "", title_ko: "", body_ja: "", body_ko: "", link: "" }, [
-        ["date", "日付", "date"], ["title_ja", "タイトル（日本語）"], ["title_ko", "タイトル（韓国語）"],
-        ["body_ja", "本文（日本語）", "textarea"], ["body_ko", "本文（韓国語）", "textarea"], ["link", "リンク（任意）"]]);
+      return listEditor("お知らせ", "news", { date: new Date().toISOString().slice(0, 10), title: "", body: "", link: "" }, [
+        ["date", "日付", "date"], ["title", "タイトル"], ["body", "本文", "textarea"], ["link", "リンク（任意）"]],
+        "日本語と韓国語のページに同じ文が出ます。両方の言語で書くときは、同じ欄に続けて書いてください。");
     }],
     faq: ["よくある質問", function () {
-      return listEditor("質問", "faq", { q_ja: "", q_ko: "", a_ja: "", a_ko: "" }, [
-        ["q_ja", "質問（日本語）"], ["q_ko", "質問（韓国語）"], ["a_ja", "答え（日本語）", "textarea"], ["a_ko", "答え（韓国語）", "textarea"]]);
+      return listEditor("質問", "faq", { q: "", a: "" }, [["q", "質問"], ["a", "答え", "textarea"]],
+        "日本語と韓国語のページに同じ文が出ます。両方の言語で書くときは、同じ欄に続けて書いてください。");
     }],
     settings: ["リンク・設定", settingsEditor],
     people: ["先生・運営スタッフ名簿", peopleEditor]
