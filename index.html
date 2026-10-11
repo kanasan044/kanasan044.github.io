@@ -15,29 +15,30 @@
   <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Sans+JP:wght@400;500;700;900&family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="assets/css/style.css?v=20261011a">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@700;800&family=Noto+Sans+JP:wght@400;500;700;900&family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/css/style.css?v=20261011c">
 </head>
 <body data-page="home">
   <div id="site-header"></div>
 
   <main id="main">
     <section class="hero">
-      <div class="hero__glow" aria-hidden="true"></div>
-      <div class="container hero__grid">
-        <div class="hero__copy reveal">
-          <p class="pill"><span class="pill__dot"></span><span data-i18n="hero.eyebrow">VRChat ワールド · 日本語 × 한국어</span></p>
-          <h1 class="hero__title" data-i18n-html="hero.title">寄り道から、<br><span class="grad">はじまる友だち。</span></h1>
-          <p class="hero__lead" data-i18n="hero.lead"></p>
-          <div class="hero__cta">
-            <a class="btn btn--primary" data-link="world_url" href="#"><span data-i18n="cta.world">ワールドに行く</span><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M7 4l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></a>
-            <a class="btn btn--ghost" data-link="group_url" href="#" data-i18n="cta.group">グループに参加</a>
-          </div>
-          <ul class="hero__meta">
-            <li><b>PC</b> · <b>Quest</b> · <b>Android</b></li>
-            <li data-i18n="hero.tz"></li>
-          </ul>
+      <div class="hero__mesh" aria-hidden="true"><span></span><span></span><span></span></div>
+      <div class="container hero__head reveal">
+        <p class="pill"><span class="pill__dot"></span><span data-i18n="hero.eyebrow">VRChat ワールド · 日本語 × 한국어</span></p>
+        <h1 class="hero__title" data-i18n-html="hero.title">寄り道から、<br><span class="grad">はじまる友だち。</span></h1>
+        <p class="hero__lead" data-i18n="hero.lead"></p>
+        <div class="hero__cta">
+          <a class="btn btn--primary" data-link="world_url" href="#"><span data-i18n="cta.world">ワールドに行く</span><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M7 4l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></a>
+          <a class="btn btn--ghost" data-link="group_url" href="#" data-i18n="cta.group">グループに参加</a>
         </div>
+        <ul class="hero__meta">
+          <li><b>PC</b> · <b>Quest</b> · <b>Android</b></li>
+          <li data-i18n="hero.tz"></li>
+        </ul>
+      </div>
+      <div class="container">
+        <div class="notice-wrap" id="notice" hidden><div class="notice"><span class="notice__dot"></span><span id="notice-text"></span></div></div>
         <div class="hero__visual reveal">
           <figure class="shot shot--hero">
             <img data-img="hero_image" src="images/plaza_hero.jpg" alt="" width="1600" height="900" fetchpriority="high">
@@ -51,19 +52,23 @@
             <span class="float-card__icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 3a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3zm7 9a7 7 0 0 1-14 0M12 19v2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></span>
             <span data-i18n="hero.voice"></span>
           </div>
+          <div class="float-card float-card--clock" aria-live="off">
+            <span class="live-dot" aria-hidden="true"></span><b id="now-clock">--:--</b><small data-i18n="hero.clock"></small>
+          </div>
         </div>
       </div>
+      <div class="marquee" aria-hidden="true">
+        <div class="marquee__track" id="marquee"></div>
+      </div>
       <div class="container">
-        <dl class="stats reveal">
-          <div><dt>3</dt><dd data-i18n="stats.areas"></dd></div>
-          <div><dt>6</dt><dd data-i18n="stats.rooms"></dd></div>
-          <div><dt>6</dt><dd data-i18n="stats.classes"></dd></div>
-          <div><dt>2</dt><dd data-i18n="stats.langs"></dd></div>
+        <dl class="stats">
+          <div class="reveal"><dt data-count="3">3</dt><dd data-i18n="stats.areas"></dd></div>
+          <div class="reveal"><dt data-count="6">6</dt><dd data-i18n="stats.rooms"></dd></div>
+          <div class="reveal"><dt data-count="6">6</dt><dd data-i18n="stats.classes"></dd></div>
+          <div class="reveal"><dt data-count="2">2</dt><dd data-i18n="stats.langs"></dd></div>
         </dl>
       </div>
     </section>
-
-    <div class="notice-wrap container" id="notice" hidden><div class="notice"><span class="notice__dot"></span><span id="notice-text"></span></div></div>
 
     <section class="section" id="about">
       <div class="container">
@@ -154,6 +159,6 @@
   </main>
 
   <div id="site-footer"></div>
-  <script src="assets/js/main.js?v=20261011a"></script>
+  <script src="assets/js/main.js?v=20261011c"></script>
 </body>
 </html>
