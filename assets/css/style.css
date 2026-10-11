@@ -216,7 +216,7 @@ html[lang="ko"] .hero__title { letter-spacing: -.035em; }
 .news li { display: grid; grid-template-columns: 140px 1fr; gap: 24px; padding: 22px 0; border-bottom: 1px solid var(--line); }
 .news time { color: var(--muted); font-size: 14px; font-variant-numeric: tabular-nums; padding-top: 2px; }
 .news h3 { font-size: 17px; font-weight: 700; }
-.news p { margin-top: 4px; color: var(--muted); font-size: 15px; }
+.news p { margin-top: 4px; color: var(--muted); font-size: 15px; white-space: pre-line; }
 .news a { color: var(--accent); font-weight: 600; font-size: 14px; }
 
 /* Schedule */
@@ -293,7 +293,7 @@ html[lang="ko"] .hero__title { letter-spacing: -.035em; }
 .faq summary::-webkit-details-marker { display: none; }
 .faq summary::after { content: ""; flex: none; width: 22px; height: 22px; border-radius: 50%; background: var(--soft) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 7v10M7 12h10' stroke='%230c0e13' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E") center / 14px no-repeat; transition: transform .3s var(--ease); }
 .faq details[open] summary::after { transform: rotate(45deg); }
-.faq .faq__a { padding: 0 24px 22px; color: var(--muted); }
+.faq .faq__a { padding: 0 24px 22px; color: var(--muted); white-space: pre-line; }
 
 /* Footer */
 .footer { border-top: 1px solid var(--line); padding: 56px 0 28px; }
