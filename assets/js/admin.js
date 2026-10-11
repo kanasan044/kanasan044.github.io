@@ -365,7 +365,7 @@
   function setEditing(on) {
     editing = on;
     document.body.classList.toggle("yo-editing", on);
-    if (on) { decorate(); toast("文章をクリックすると書き換えられます。いま表示している言語（" + (SITE.getLang() === "ko" ? "韓国語" : "日本語") + "）が編集されます。"); }
+    if (on) { decorate(); toast("点線で囲まれた文章をクリックすると書き換えられます。下の「⇄」ボタンで、日本語と韓国語のページを切り替えて編集できます。"); }
     else undecorate();
     updateBar();
   }
@@ -425,30 +425,59 @@
     if (f[2] === "bool") return field(f[1], item[f[0]] === false ? "表示しない" : "表示する", function (v) { item[f[0]] = v === "表示する"; }, "select", ["表示する", "表示しない"]);
     return field(f[1], item[f[0]], function (v) { item[f[0]] = v; }, f[2], f[3]);
   }
-  function listEditor(title, listKey, blank, fields, note, extra) {
+  // A list (お知らせ・質問・名簿) shown as one line per item; tap a line to open it and edit. New items open by themselves.
+  // summary(item) → { lead: short text or picture, img, title, sub, badge, badgeClass } for the closed line.
+  var openItems = new WeakSet();
+  function listEditor(title, listKey, blank, fields, note, extra, summary) {
     var body = $("div", { class: "yo-list" });
     var arr = function () { return typeof listKey === "function" ? listKey() : draft[listKey]; };
+    summary = summary || function (item) { return { title: String(item[fields[0][0]] || "") }; };
+    function lead(s) {
+      var box = $("span", { class: "yo-item__lead" });
+      if (s.img) box.appendChild($("img", { src: s.img, alt: "" })); else box.textContent = s.lead || "・";
+      return box;
+    }
     function draw() {
       body.innerHTML = "";
-      body.appendChild($("button", { class: "yo-btn yo-btn--primary yo-btn--block", type: "button", text: "＋ " + title + "を追加",
-        on: { click: function () { arr().unshift(typeof blank === "function" ? blank() : clone(blank)); changed(true); draw(); } } }));
-      if (note) body.appendChild($("p", { class: "yo-muted", text: note }));
+      body.appendChild($("button", { class: "yo-btn yo-btn--add", type: "button", text: "＋ " + title + "を追加",
+        on: { click: function () { var it = typeof blank === "function" ? blank() : clone(blank); arr().unshift(it); openItems.add(it); changed(true); draw(); } } }));
+      if (note) body.appendChild($("p", { class: "yo-hint", text: note }));
       if (!arr().length) body.appendChild($("p", { class: "yo-empty", text: "まだありません" }));
       arr().forEach(function (item, i) {
-        var card = $("div", { class: "yo-card" });
-        fields.forEach(function (f) { var el = itemField(item, f); if (el) card.appendChild(el); });
-        if (extra) card.appendChild(extra(item));
-        card.appendChild($("div", { class: "yo-row yo-row--end" }, [
-          i > 0 ? $("button", { class: "yo-btn yo-btn--sm", type: "button", text: "↑", title: "上へ", on: { click: function () { var a = arr(); a.splice(i - 1, 0, a.splice(i, 1)[0]); changed(true); draw(); } } }) : null,
-          $("button", { class: "yo-btn yo-btn--sm yo-btn--danger", type: "button", text: "削除",
-            on: { click: function () { if (confirm("この" + title + "を削除しますか？")) { arr().splice(i, 1); changed(true); draw(); } } } })
-        ]));
+        var open = openItems.has(item), s = summary(item);
+        var strong = $("strong", { text: s.title || "（まだ入力されていません）" }), small = $("small", { text: s.sub || "" });
+        var card = $("div", { class: "yo-card yo-item" + (open ? " is-open" : "") }, [
+          $("button", { class: "yo-item__head", type: "button", "aria-expanded": String(open), on: { click: function () {
+            if (openItems.has(item)) openItems.delete(item); else openItems.add(item);
+            draw();
+          } } }, [lead(s), $("span", { class: "yo-item__text" }, [strong, small]),
+            s.badge ? $("span", { class: "yo-badge " + (s.badgeClass || ""), text: s.badge }) : null,
+            $("span", { class: "yo-item__chev", "aria-hidden": "true" })])
+        ]);
+        if (open) {
+          var inner = $("div", { class: "yo-item__body" });
+          fields.forEach(function (f) { var el = itemField(item, f); if (el) inner.appendChild(el); });
+          if (extra) inner.appendChild(extra(item));
+          var a = arr();
+          inner.appendChild($("div", { class: "yo-row yo-row--end" }, [
+            i > 0 ? $("button", { class: "yo-btn yo-btn--sm yo-btn--icon", type: "button", text: "↑", title: "上へ", on: { click: function () { a.splice(i - 1, 0, a.splice(i, 1)[0]); changed(true); draw(); } } }) : null,
+            i < a.length - 1 ? $("button", { class: "yo-btn yo-btn--sm yo-btn--icon", type: "button", text: "↓", title: "下へ", on: { click: function () { a.splice(i + 1, 0, a.splice(i, 1)[0]); changed(true); draw(); } } }) : null,
+            $("button", { class: "yo-btn yo-btn--sm yo-btn--danger", type: "button", text: "削除",
+              on: { click: function () { if (confirm("この" + title + "を削除しますか？")) { arr().splice(i, 1); changed(true); draw(); } } } }),
+            $("button", { class: "yo-btn yo-btn--sm yo-btn--primary", type: "button", text: "閉じる", on: { click: function () { openItems.delete(item); draw(); } } })
+          ]));
+          // Keep the closed line's text in step with what is typed.
+          inner.addEventListener("input", function () { var s2 = summary(item); strong.textContent = s2.title || "（まだ入力されていません）"; small.textContent = s2.sub || ""; });
+          card.appendChild(inner);
+        }
         body.appendChild(card);
       });
     }
     draw();
     return body;
   }
+  function firstLine(s) { return String(s || "").split(/\r?\n/)[0].trim(); }
+  function shortDate(d) { var m = String(d || "").match(/\d{4}-(\d{2})-(\d{2})/); return m ? +m[1] + "/" + +m[2] : "—"; }
   function settingsEditor() {
     var s = draft.settings, box = $("div", { class: "yo-list" });
     var group = function (title, kids) { box.appendChild($("div", { class: "yo-card" }, [$("h3", { text: title })].concat(kids))); };
@@ -456,7 +485,9 @@
     // 運営スタッフ see only the announcement bar and the recruiting status; the rest is for the founder.
     if (founder()) group("リンク", [
       f("world_url", "VRChat ワールドのURL"), f("group_url", "VRChat グループのURL"),
-      f("recruit_form_url", "応募フォーム（Google フォーム）のURL"), f("staff_page_url", "スタッフ専用ページのURL"),
+      f("recruit_form_url", "応募フォーム（Google フォーム）のURL"),
+      f("contact_form_url", "お問い合わせフォーム（Google フォーム）のURL（空なら「よくある質問」の下のボタンは非表示）"),
+      f("staff_page_url", "スタッフ専用ページのURL"),
       f("discord_url", "Discord のURL（空なら非表示）"), f("x_url", "X のURL（空なら非表示）")
     ]);
     group("トップのお知らせバー", [f("announcement", "お知らせ（空なら非表示・日本語と韓国語の両方のページに同じ文が出ます）", "textarea")]);
@@ -478,8 +509,6 @@
         }
       } } }),
       f("staff_api", "（上級者向け）Cloudflare の API の URL。空なら最初からのアドレスを使います")]);
-    group("独自ドメイン", [f("domain", "例：yorimichi.jp（空なら kanasan044.github.io）"),
-      $("p", { class: "yo-muted", text: "ドメイン会社側の設定も必要です。設定するときは Claude に聞いてください。" })]);
     box.appendChild($("p", { class: "yo-muted", text: "写真は「編集する」をオンにして、ページの写真の上のボタンから変えられます。" }));
     return box;
   }
@@ -513,13 +542,15 @@
       });
     }],
     news: ["お知らせ", function () {
-      return listEditor("お知らせ", "news", { date: new Date().toISOString().slice(0, 10), title: "", body: "", link: "" }, [
-        ["date", "日付", "date"], ["title", "タイトル"], ["body", "本文", "textarea"], ["link", "リンク（任意）"]],
-        "日本語と韓国語のページに同じ文が出ます。両方の言語で書くときは、同じ欄に続けて書いてください。");
+      return listEditor("お知らせ", "news", function () { return { date: jstStamp().slice(0, 10), title: "", body: "", link: "" }; }, [
+        ["date", "日付", "date"], ["title", "タイトル"], ["body", "本文", "textarea"], ["link", "リンク（任意・https:// から）"]],
+        "日本語と韓国語のページに同じ文が出ます。両方の言語で載せたいときは、同じ欄に続けて書いてください。トップページには新しい順に5件まで出ます。",
+        null, function (n) { return { lead: shortDate(n.date), title: n.title, sub: firstLine(n.body) }; });
     }],
     faq: ["よくある質問", function () {
       return listEditor("質問", "faq", { q: "", a: "" }, [["q", "質問"], ["a", "答え", "textarea"]],
-        "日本語と韓国語のページに同じ文が出ます。両方の言語で書くときは、同じ欄に続けて書いてください。");
+        "日本語と韓国語のページに同じ文が出ます。並び順は ↑↓ で変えられます（上にあるほど先に表示）。",
+        null, function (f) { return { lead: "Q", title: f.q, sub: firstLine(f.a) }; });
     }],
     settings: ["リンク・設定", settingsEditor],
     people: ["先生・運営スタッフ名簿", peopleEditor]
@@ -591,6 +622,7 @@
       wrap.innerHTML = "";
       var res;
       try { res = await api("/admin/applications"); } catch (e) { return; }
+      waiting = res.apps.length;
       if (!res.apps.length && !res.drafts) return;
       wrap.appendChild($("h3", { class: "yo-section", text: "承認待ち（" + res.apps.length + "）" }));
       if (res.drafts) wrap.appendChild($("p", { class: "yo-muted", text: "ほかに " + res.drafts + " 人が入力中です。" }));
@@ -629,12 +661,14 @@
     return wrap;
   }
   function peopleEditor() {
+    if (!people) return $("p", { class: "yo-empty", text: "名簿を読み込めませんでした。ページを開き直してください。" });
     var box = $("div", { class: "yo-list" });
     // The role (創設者 / 運営スタッフ / 先生) is chosen with buttons, like Discord roles; only founders see this screen.
     var fields = [["name", "VRChat の表示名（1文字も違わないように）"], ["role", "役職", "role"], ["bio", "自己紹介", "textarea"], ["tags", "タグ", "tags"],
       ["image", "写真", "photo"], ["show", "サイトに表示", "bool"]];
     var blank = { name: "", bio: "", tags: [], image: "", show: true };
-    box.appendChild($("div", { class: "yo-note" }, [
+    box.appendChild($("details", { class: "yo-note" }, [
+      $("summary", { text: "名簿の使い方（タップで開く）" }),
       $("strong", { text: "ここに書いた人が、サイトとワールドで役職を持ちます。役職はボタンで変えられます。" }),
       $("span", { text: "創設者：すべて（名簿・役職・招待・リンクなど）／運営スタッフ：予定・お知らせ・質問・サイトの文章と写真（役職や名簿は変えられません）／先生：自分の予定とプロフィール。" }),
       $("span", { text: "ワールドでは、先生は教室の鍵をかけられ、運営スタッフ・創設者は鍵のかかった教室にも入れます。保存してから数分で反映されます（ワールドにいる人は最大5分ほど）。「サイトに表示しない」にしても役職はそのままです。" }),
@@ -647,10 +681,17 @@
       btn.disabled = false;
     } } }));
     box.appendChild(applicationsBox());
-    box.appendChild($("h3", { class: "yo-section", text: "創設者・運営スタッフ" }));
-    box.appendChild(listEditor("運営スタッフ", function () { return people.staff; }, blank, fields, null, discordField));
-    box.appendChild($("h3", { class: "yo-section", text: "先生" }));
-    box.appendChild(listEditor("先生", function () { return people.teachers; }, blank, fields, null, discordField));
+    var who = function (p) {
+      var name = String(p.name || "").trim(), role = roleOf(p);
+      var acc = keys.accounts.some(function (a) { return a.name === name; });
+      return { img: preview[p.image] || p.image || "", lead: name ? Array.from(name)[0] : "?", title: name,
+        sub: (acc ? "Discord ログイン：登録済み" : "Discord ログイン：未登録") + (p.show === false ? "・サイトに非表示" : ""),
+        badge: { founder: "創設者", staff: "運営スタッフ", teacher: "先生" }[role], badgeClass: "yo-badge--" + role };
+    };
+    box.appendChild($("h3", { class: "yo-section", text: "創設者・運営スタッフ（" + people.staff.length + "人）" }));
+    box.appendChild(listEditor("運営スタッフ", function () { return people.staff; }, blank, fields, null, discordField, who));
+    box.appendChild($("h3", { class: "yo-section", text: "先生（" + people.teachers.length + "人）" }));
+    box.appendChild(listEditor("先生", function () { return people.teachers; }, blank, fields, null, discordField, who));
     return box;
   }
   function roleOf(item) { return people.teachers.indexOf(item) >= 0 ? "teacher" : item.rank === "founder" ? "founder" : "staff"; }
@@ -679,54 +720,99 @@
       return $("button", attrs);
     })), !OWNER && cur === "founder" ? $("span", { class: "yo-muted", text: "創設者の役職は、かなさんだけが変えられます。" }) : null]);
   }
-  function openPanel(tab) {
+  // One panel with tabs: 予定・お知らせ・質問・名簿（創設者）・設定. Switching tabs keeps unsaved changes.
+  var currentTab = "schedule", waiting = 0;
+  function tabNames() { return founder() ? ["schedule", "news", "faq", "people", "settings"] : ["schedule", "news", "faq", "settings"]; }
+  function tabLabel(tab) { return tab === "settings" ? (founder() ? "リンク・設定" : "設定") : tab === "people" ? "名簿" : TABS[tab][0]; }
+  function closePanel() { if (panel) panel.remove(); panel = null; document.body.classList.remove("yo-has-panel"); updateBar(); }
+  async function openPanel(tab) {
+    if (tab === "people" && people && !keysDirty() && !peopleDirty()) {
+      // Pick up registrations, approvals and members' own profile edits made since this page was opened.
+      try { await loadPeople(); changed(true); } catch (e) { /* show what we have */ }
+    }
+    currentTab = tab || currentTab;
+    var keepScroll = panel && panel.getAttribute("data-tab") === currentTab ? panel.querySelector(".yo-panel__body").scrollTop : 0;
     if (panel) panel.remove();
-    panel = $("aside", { class: "yo-panel yo-ui" }, [
+    var tabs = $("div", { class: "yo-tabs", role: "tablist" }, tabNames().map(function (k) {
+      return $("button", { type: "button", role: "tab", "aria-selected": String(k === currentTab), on: { click: function () { openPanel(k); } } },
+        [tabLabel(k), k === "people" && waiting ? $("span", { class: "yo-count", text: String(waiting) }) : null]);
+    }));
+    panel = $("aside", { class: "yo-panel yo-ui", "data-tab": currentTab, "aria-label": "管理パネル" }, [
       $("div", { class: "yo-panel__head" }, [
-        $("h2", { text: tab === "settings" && !founder() ? "設定" : TABS[tab][0] }),
-        $("button", { class: "yo-btn yo-btn--sm", type: "button", text: "閉じる", on: { click: function () { panel.remove(); panel = null; } } })
+        $("div", {}, [$("h2", { text: "管理パネル" }), $("p", { text: "変えた内容は、下の「保存して公開」でサイトに出ます" })]),
+        $("button", { class: "yo-x", type: "button", text: "×", title: "閉じる", "aria-label": "閉じる", on: { click: closePanel } })
       ]),
-      $("div", { class: "yo-panel__body" }, [TABS[tab][1]()])
+      tabs,
+      $("div", { class: "yo-panel__body" }, [TABS[currentTab][1]()])
     ]);
     document.body.appendChild(panel);
+    document.body.classList.add("yo-has-panel");
+    panel.querySelector(".yo-panel__body").scrollTop = keepScroll;
+    updateBar();
   }
 
   /* ---------- toolbar ---------- */
   var bar = null;
   function updateBar() {
     if (!bar) return;
-    var d = dirty();
-    bar.querySelector("[data-save]").disabled = !d;
-    bar.querySelector("[data-save]").textContent = d ? "保存して公開" : "保存済み";
-    bar.querySelector("[data-edit]").textContent = editing ? "編集を終える" : "✎ 編集する";
-    bar.querySelector("[data-edit]").classList.toggle("is-on", editing);
+    var d = dirty(), sv = bar.querySelector("[data-save]");
+    sv.disabled = !d;
+    sv.innerHTML = "";
+    sv.appendChild(d ? $("span", { class: "yo-dot", "aria-hidden": "true" }) : $("span", { class: "yo-i", text: "✓" }));
+    sv.appendChild($("span", { class: "yo-l yo-l--keep", text: d ? "保存して公開" : "保存済み" }));
+    bar.querySelector("[data-undo]").hidden = !d;
+    var ed = bar.querySelector("[data-edit]");
+    ed.querySelector(".yo-i").textContent = editing ? "✓" : "✎";
+    ed.querySelector(".yo-l").textContent = editing ? "編集を終える" : "ページを直接編集";
+    ed.classList.toggle("is-on", editing);
+    var lg = bar.querySelector("[data-lang]");
+    lg.hidden = !editing;
+    lg.querySelector(".yo-l").textContent = (SITE.getLang() === "ko" ? "韓国語" : "日本語") + "を編集中";
+    lg.title = (SITE.getLang() === "ko" ? "日本語" : "韓国語") + "のページに切り替えて編集する";
+    bar.querySelector("[data-panel]").classList.toggle("is-on", !!panel);
+  }
+  // Throw away everything not saved yet and show what is published now.
+  async function discard() {
+    if (!dirty() || !confirm("保存していない変更をすべて取り消して、いま公開中の内容に戻しますか？")) return;
+    pending = {}; openItems = new WeakSet();
+    try { await loadLatest(); toast("変更を取り消しました"); }
+    catch (e) { toast("読み込み直せませんでした：" + e.message, false, true); }
+    if (editing) decorate();
+    if (panel) openPanel(currentTab);
+    updateBar();
   }
   function buildBar() {
-    var b = function (text, fn, attrs) { var a = attrs || {}; a.type = "button"; a.class = "yo-bar__btn " + (a.class || ""); a.text = text; a.on = { click: fn }; return $("button", a); };
-    bar = $("div", { class: "yo-bar yo-ui" }, [
-      $("span", { class: "yo-bar__who", title: (founder() ? "創設者" : "運営スタッフ") + "としてログイン中" + (whoUser ? "（@" + whoUser + "）" : ""),
-        text: "● " + (who || login) + "（" + (founder() ? "創設者" : "運営") + "）" }),
-      b("✎ 編集する", function () { setEditing(!editing); }, { "data-edit": "1" }),
-      b("予定", function () { openPanel("schedule"); }),
-      b("お知らせ", function () { openPanel("news"); }),
-      b("質問", function () { openPanel("faq"); }),
+    // Each button: an icon and a label; on phones only the icon shows (the label stays as the tooltip / screen-reader name).
+    var b = function (text, fn, attrs) {
+      var a = attrs || {}, m = String(text).match(/^(\S)\s+(.+)$/);
+      a.type = "button"; a.class = "yo-bar__btn " + (a.class || ""); a.on = { click: fn };
+      if (!a.title) a.title = m ? m[2] : text;
+      return $("button", a, m ? [$("span", { class: "yo-i", text: m[1] }), $("span", { class: "yo-l", text: m[2] })] : [$("span", { class: "yo-l yo-l--keep", text: text })]);
+    };
+    var shown = who || login || "";
+    bar = $("div", { class: "yo-bar yo-ui", role: "toolbar", "aria-label": "編集" }, [
+      $("span", { class: "yo-bar__who", title: (founder() ? "創設者" : "運営スタッフ") + "としてログイン中" + (whoUser ? "（@" + whoUser + "）" : "") }, [
+        $("i", { text: shown ? Array.from(shown)[0] : "?" }), $("span", {}, [shown, $("small", { text: founder() ? "創設者" : "運営スタッフ" })])
+      ]),
+      $("span", { class: "yo-bar__sep" }),
+      b("✎ ページを直接編集", function () { setEditing(!editing); }, { "data-edit": "1", title: "ページの文章や写真を、その場で書き換えます" }),
+      b("⇄ 日本語を編集中", function () { var other = SITE.getLang() === "ko" ? "ja" : "ko"; var btn = document.querySelector('.lang button[data-lang="' + other + '"]'); if (btn) btn.click(); }, { "data-lang": "1", class: "yo-bar__lang" }),
+      b("☰ 管理パネル", function () { if (panel) closePanel(); else openPanel(currentTab); }, { "data-panel": "1", title: founder() ? "予定・お知らせ・質問・名簿・設定" : "予定・お知らせ・質問・設定" }),
       // 運営スタッフ edit their own profile (staff.js), not the roster.
-      !founder() && window.YORIMICHI_OPEN_PROFILE ? b("プロフィール", function () { window.YORIMICHI_OPEN_PROFILE(); }) : null,
-      !founder() ? null : b("名簿", async function () {
-        if (!people) return;
-        // Pick up registrations, approvals and members' own profile edits made since this page was opened.
-        if (!keysDirty() && !peopleDirty()) {
-          try { await loadPeople(); changed(true); } catch (e) { /* show what we have */ }
-        }
-        openPanel("people");
-      }),
-      b(founder() ? "リンク・設定" : "設定", function () { openPanel("settings"); }),
-      b("保存済み", save, { "data-save": "1", class: "yo-bar__save" }),
-      b("ログアウト", logout, { class: "yo-bar__ghost" })
+      !founder() && window.YORIMICHI_OPEN_PROFILE ? b("プロフィール", function () { closePanel(); window.YORIMICHI_OPEN_PROFILE(); }) : null,
+      $("span", { class: "yo-bar__sep" }),
+      b("保存済み", save, { "data-save": "1", class: "yo-bar__save", title: "保存して公開（Ctrl + S）" }),
+      b("↺ 取り消す", discard, { "data-undo": "1", class: "yo-bar__ghost", title: "保存していない変更を取り消す" }),
+      b("ログアウト", logout, { class: "yo-bar__ghost yo-bar__logout" })
     ]);
     document.body.appendChild(bar);
     updateBar();
   }
+  document.addEventListener("yorimichi:lang", updateBar);
+  // Ctrl + S (⌘ + S) saves and publishes.
+  document.addEventListener("keydown", function (e) {
+    if ((e.ctrlKey || e.metaKey) && (e.key === "s" || e.key === "S")) { e.preventDefault(); if (dirty() && bar && !bar.querySelector("[data-save]").disabled) save(); }
+  });
   window.addEventListener("beforeunload", function (e) { if (dirty()) { e.preventDefault(); e.returnValue = ""; } });
 
   var toastTimer = 0;
@@ -741,72 +827,20 @@
     buildBar();
     try { await loadLatest(); } catch (e) { toast("最新の内容を読み込めませんでした：" + e.message, false, true); draft = clone(window.YORIMICHI_CONTENT || {}); saved = JSON.stringify(draft); }
     updateBar();
+    // Let the founder know when someone is waiting for approval.
+    if (founder()) {
+      try {
+        var res = await api("/admin/applications");
+        waiting = res.apps.length;
+        if (waiting) toast("承認待ちの人が " + waiting + " 人います（管理パネル →「名簿」）");
+      } catch (e) { /* not important */ }
+    }
   }
 
-  /* ---------- styles (admin UI only) ---------- */
-  document.head.appendChild($("style", { text: [
-    ".yo-ui{font-family:var(--font-ja);color:var(--ink);line-height:1.5}",
-    ".yo-bar{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);z-index:97;display:flex;align-items:center;gap:4px;padding:6px;max-width:calc(100% - 24px);overflow-x:auto;background:rgba(12,14,19,.92);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border-radius:999px;box-shadow:0 20px 40px -12px rgba(0,0,0,.45);color:#fff}",
-    ".yo-bar__who{padding:0 12px 0 10px;font-size:12.5px;font-weight:700;color:#7ee2a8;white-space:nowrap}",
-    ".yo-bar__btn{border:0;background:transparent;color:#fff;padding:9px 14px;border-radius:999px;font:inherit;font-size:13.5px;font-weight:600;white-space:nowrap;cursor:pointer}",
-    ".yo-bar__btn:hover{background:rgba(255,255,255,.1)}",
-    ".yo-bar__btn.is-on{background:#fff;color:var(--ink)}",
-    ".yo-bar__save{background:var(--accent)}.yo-bar__save:hover{background:var(--accent-ink)}",
-    ".yo-bar__save:disabled{background:rgba(255,255,255,.08);color:rgba(255,255,255,.55);cursor:default}",
-    ".yo-bar__ghost{color:rgba(255,255,255,.6)}",
-    ".yo-editing .yo-editable{outline:1.5px dashed rgba(49,87,255,.55);outline-offset:4px;border-radius:6px;cursor:text;transition:outline-color .2s,background .2s}",
-    ".yo-editing .yo-editable:hover{background:rgba(49,87,255,.05)}",
-    ".yo-editing .yo-editable:focus{outline:2px solid var(--accent);background:rgba(49,87,255,.06)}",
-    ".yo-editing .tile .yo-editable{outline-color:rgba(255,255,255,.7)}",
-    ".yo-editing .reveal{opacity:1;transform:none}",
-    ".yo-imghost{position:relative}",
-    ".yo-imgbar{position:absolute;top:14px;left:14px;z-index:5;display:flex;gap:6px}",
-    ".yo-chip{border:0;padding:8px 14px;border-radius:999px;background:#fff;color:var(--ink);font:inherit;font-size:13px;font-weight:700;box-shadow:0 6px 16px -6px rgba(0,0,0,.4);cursor:pointer}",
-    ".yo-chip--ghost{background:rgba(255,255,255,.75)}",
-    ".yo-panel{position:fixed;top:0;right:0;bottom:0;z-index:95;width:min(440px,100%);display:flex;flex-direction:column;background:#fff;box-shadow:-20px 0 50px -20px rgba(16,24,40,.35);animation:yoIn .25s ease}",
-    "@keyframes yoIn{from{transform:translateX(30px);opacity:0}to{transform:none;opacity:1}}",
-    ".yo-panel__head{display:flex;align-items:center;justify-content:space-between;padding:18px 20px;border-bottom:1px solid var(--line)}",
-    ".yo-panel__head h2{font-size:18px;margin:0}",
-    ".yo-panel__body{flex:1;overflow-y:auto;padding:16px 20px 120px;background:var(--soft)}",
-    ".yo-list{display:grid;gap:12px}",
-    ".yo-card{display:grid;gap:10px;padding:16px;background:#fff;border:1px solid var(--line);border-radius:16px}",
-    ".yo-card h3{font-size:14px;margin:0 0 2px}",
-    ".yo-field{display:grid;gap:4px;font-size:12.5px;font-weight:600;color:var(--muted)}",
-    ".yo-input{width:100%;padding:9px 12px;border:1px solid var(--line);border-radius:10px;font:inherit;font-size:14.5px;font-weight:400;color:var(--ink);background:#fff;resize:vertical}",
-    ".yo-input:focus{outline:2px solid rgba(49,87,255,.35);border-color:var(--accent)}",
-    ".yo-row{display:flex;gap:8px;align-items:center}.yo-row--end{justify-content:flex-end}",
-    ".yo-btn{border:1px solid var(--line);background:#fff;color:var(--ink);padding:9px 16px;border-radius:999px;font:inherit;font-size:14px;font-weight:700;cursor:pointer}",
-    ".yo-btn:disabled{opacity:.5}",
-    ".yo-btn--primary{background:var(--ink);border-color:var(--ink);color:#fff}",
-    ".yo-btn--block{width:100%}.yo-btn--sm{padding:6px 12px;font-size:13px}",
-    ".yo-btn--danger{color:#d43c64;border-color:rgba(212,60,100,.3)}",
-    ".yo-muted{font-size:13px;color:var(--muted);margin:0}",
-    ".yo-thumb{width:56px;height:56px;flex:none;display:grid;place-items:center;overflow:hidden;border-radius:50%;background:var(--soft);border:1px solid var(--line);font-size:10.5px;color:var(--muted)}",
-    ".yo-thumb img{width:100%;height:100%;object-fit:cover}",
-    ".yo-code{margin:4px 0;padding:14px;border-radius:12px;background:var(--soft);font:700 20px/1.3 ui-monospace,Consolas,monospace;letter-spacing:.06em;text-align:center;user-select:all}",
-    ".yo-nowrap{white-space:nowrap;flex:none}",
-    ".yo-tags{display:flex;flex-wrap:wrap;gap:6px}",
-    ".yo-tag{padding:6px 11px;border:1px solid var(--line);border-radius:999px;background:#fff;font:inherit;font-size:12.5px;font-weight:700;color:var(--ink);cursor:pointer}",
-    ".yo-tag:hover{border-color:var(--accent)}.yo-tag.is-on{background:var(--accent);border-color:var(--accent);color:#fff}",
-    ".yo-role{font-size:13.5px;padding:8px 14px}.yo-role:disabled{opacity:.4;cursor:not-allowed}",
-    ".yo-role--founder.is-on{background:linear-gradient(90deg,#ff6b8b,#3157ff);border-color:transparent}",
-    ".yo-role--teacher.is-on{background:#1f9d57;border-color:#1f9d57}",
-    ".yo-card--app{border-color:rgba(49,87,255,.35);box-shadow:0 0 0 3px rgba(49,87,255,.06)}",
-    ".yo-card--app p{white-space:pre-wrap}",
-    ".yo-section{font-size:15px;margin:10px 2px 0}",
-    ".yo-note{display:grid;gap:4px;padding:14px 16px;border-radius:14px;background:rgba(49,87,255,.07);font-size:13px;color:var(--ink)}",
-    ".yo-note span{color:var(--muted)}",
-    ".yo-empty{text-align:center;color:var(--muted);font-size:14px;padding:16px}",
-    ".yo-modal{position:fixed;inset:0;z-index:100;display:grid;place-items:center;padding:16px;background:rgba(12,14,19,.45);backdrop-filter:blur(4px)}",
-    ".yo-modal__card{width:min(440px,100%);display:grid;gap:12px;padding:28px;background:#fff;border-radius:24px;box-shadow:var(--shadow-lg)}",
-    ".yo-modal__card h2{font-size:22px;margin:0}",
-    ".yo-eyebrow{font-size:12px;font-weight:800;letter-spacing:.14em;color:var(--accent);margin:0}",
-    ".yo-err{min-height:1.2em;font-size:13px;color:#d43c64;margin:0}",
-    ".yo-link{font-size:13px;font-weight:700;color:var(--accent)}",
-    ".yo-toast{position:fixed;left:50%;bottom:84px;transform:translate(-50%,10px);z-index:98;max-width:min(560px,calc(100% - 32px));padding:12px 18px;border-radius:14px;background:#fff;border:1px solid var(--line);box-shadow:var(--shadow);font-size:14px;font-weight:600;opacity:0;pointer-events:none;transition:all .25s}",
-    ".yo-toast.is-on{opacity:1;transform:translate(-50%,0)}",
-    ".yo-toast.is-bad{border-color:rgba(212,60,100,.4);color:#b02a50}"
-  ].join("\n") }));
+  /* ---------- styles: assets/css/editor.css (loaded by staff.js; also here in case this file is opened on its own) ---------- */
+  if (!document.querySelector("link[data-yo-editor]")) {
+    document.head.appendChild($("link", { rel: "stylesheet", href: "assets/css/editor.css?v=" + Math.floor(Date.now() / 60000), "data-yo-editor": "1" }));
+  }
 
   /* ---------- start ---------- */
   (async function () {

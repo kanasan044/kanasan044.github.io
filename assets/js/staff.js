@@ -264,11 +264,12 @@
     panel = $("aside", { class: "yo-panel yo-ui" }, [
       $("div", { class: "yo-panel__head" }, [
         $("h2", { text: t("profile") }),
-        $("button", { class: "yo-btn yo-btn--sm", type: "button", text: t("close"), on: { click: function () { panel.remove(); panel = null; } } })
+        $("button", { class: "yo-x", type: "button", text: "×", title: t("close"), "aria-label": t("close"), on: { click: function () { panel.remove(); panel = null; document.body.classList.remove("yo-has-panel"); } } })
       ]),
       $("div", { class: "yo-panel__body" })
     ]);
     document.body.appendChild(panel);
+    document.body.classList.add("yo-has-panel");
     var body = panel.querySelector(".yo-panel__body");
     var data;
     try { data = await call("GET", "/profile"); } catch (e) { toast(t("failed") + "：" + errText(e), false, true); return; }
@@ -369,11 +370,12 @@
     panel = $("aside", { class: "yo-panel yo-ui" }, [
       $("div", { class: "yo-panel__head" }, [
         $("h2", { text: t("panel") }),
-        $("button", { class: "yo-btn yo-btn--sm", type: "button", text: t("close"), on: { click: function () { panel.remove(); panel = null; } } })
+        $("button", { class: "yo-x", type: "button", text: "×", title: t("close"), "aria-label": t("close"), on: { click: function () { panel.remove(); panel = null; document.body.classList.remove("yo-has-panel"); } } })
       ]),
       $("div", { class: "yo-panel__body" })
     ]);
     document.body.appendChild(panel);
+    document.body.classList.add("yo-has-panel");
     drawPanel();
   }
 
@@ -384,9 +386,11 @@
     var b = function (text, fn, cls) { return $("button", { type: "button", class: "yo-bar__btn " + (cls || ""), text: text, on: { click: fn } }); };
     var applicant = me.role === "applicant";
     var label = applicant ? t("pending") : t(me.role === "teacher" ? "teacher" : "staff");
+    var shown = me.discord || me.name || "";
     bar = $("div", { class: "yo-bar yo-ui" }, [
-      $("span", { class: "yo-bar__who", title: (me.name || "") + (me.username ? "（@" + me.username + "）" : ""),
-        text: "● " + (me.discord || me.name) + "（" + label + "）" }),
+      $("span", { class: "yo-bar__who", title: (me.name || "") + (me.username ? "（@" + me.username + "）" : "") }, [
+        $("i", { text: shown ? Array.from(shown)[0] : "?" }), $("span", {}, [shown, $("small", { text: label })])
+      ]),
       me.role === "teacher" ? b(t("edit"), openPanel, "yo-bar__save") : null,
       me.role === "teacher" || me.role === "staff" ? b(t("profile"), openProfile) : null,
       b(t("logout"), logout, "yo-bar__ghost")
@@ -403,55 +407,10 @@
     if (!stay) toastTimer = setTimeout(function () { el.classList.remove("is-on"); }, bad ? 9000 : 4500);
   }
 
-  /* ---------- styles (same look as the admin editor) ---------- */
-  document.head.appendChild($("style", { text: [
-    ".yo-ui{font-family:var(--font-ja);color:var(--ink);line-height:1.5}",
-    ".yo-bar{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);z-index:97;display:flex;align-items:center;gap:4px;padding:6px;max-width:calc(100% - 24px);overflow-x:auto;background:rgba(12,14,19,.92);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border-radius:999px;box-shadow:0 20px 40px -12px rgba(0,0,0,.45);color:#fff}",
-    ".yo-bar__who{padding:0 12px 0 10px;font-size:12.5px;font-weight:700;color:#7ee2a8;white-space:nowrap}",
-    ".yo-bar__btn{border:0;background:transparent;color:#fff;padding:9px 14px;border-radius:999px;font:inherit;font-size:13.5px;font-weight:600;white-space:nowrap;cursor:pointer}",
-    ".yo-bar__btn:hover{background:rgba(255,255,255,.1)}",
-    ".yo-bar__save{background:var(--accent)}.yo-bar__save:hover{background:var(--accent-ink)}",
-    ".yo-bar__ghost{color:rgba(255,255,255,.6)}",
-    ".yo-panel{position:fixed;top:0;right:0;bottom:0;z-index:95;width:min(440px,100%);display:flex;flex-direction:column;background:#fff;box-shadow:-20px 0 50px -20px rgba(16,24,40,.35)}",
-    ".yo-panel__head{display:flex;align-items:center;justify-content:space-between;padding:18px 20px;border-bottom:1px solid var(--line)}",
-    ".yo-panel__head h2{font-size:18px;margin:0}",
-    ".yo-panel__body{flex:1;overflow-y:auto;padding:16px 20px 120px;background:var(--soft)}",
-    ".yo-list{display:grid;gap:12px}",
-    ".yo-card{display:grid;gap:10px;padding:16px;background:#fff;border:1px solid var(--line);border-radius:16px}",
-    ".yo-field{display:grid;gap:4px;font-size:12.5px;font-weight:600;color:var(--muted)}",
-    ".yo-input{width:100%;padding:9px 12px;border:1px solid var(--line);border-radius:10px;font:inherit;font-size:14.5px;font-weight:400;color:var(--ink);background:#fff;resize:vertical}",
-    ".yo-input:focus{outline:2px solid rgba(49,87,255,.35);border-color:var(--accent)}",
-    ".yo-row{display:flex;gap:8px;align-items:center}.yo-row--end{justify-content:flex-end}",
-    ".yo-btn{border:1px solid var(--line);background:#fff;color:var(--ink);padding:9px 16px;border-radius:999px;font:inherit;font-size:14px;font-weight:700;cursor:pointer}",
-    ".yo-btn:disabled{opacity:.5}",
-    ".yo-btn--primary{background:var(--ink);border-color:var(--ink);color:#fff}",
-    ".yo-btn--block{width:100%}.yo-btn--sm{padding:6px 12px;font-size:13px}",
-    ".yo-btn--danger{color:#d43c64;border-color:rgba(212,60,100,.3)}",
-    ".yo-muted{font-size:13px;color:var(--muted);margin:0}",
-    ".yo-empty{text-align:center;color:var(--muted);font-size:14px;padding:16px}",
-    ".yo-modal{position:fixed;inset:0;z-index:100;display:grid;place-items:center;padding:16px;background:rgba(12,14,19,.45);backdrop-filter:blur(4px)}",
-    // Registration: under the toast (98) so its messages stay visible; nothing behind can be reached.
-    ".yo-modal--locked{z-index:96;background:rgba(12,14,19,.62);overscroll-behavior:contain}",
-    ".yo-modal__card{width:min(440px,100%);display:grid;gap:12px;padding:28px;background:#fff;border-radius:24px;box-shadow:var(--shadow-lg)}",
-    ".yo-modal__card h2{font-size:20px;margin:0}",
-    ".yo-modal__card--wide{width:min(560px,100%);max-height:calc(100vh - 32px);overflow-y:auto}",
-    ".yo-choices{display:grid;grid-template-columns:1fr 1fr;gap:10px}",
-    "@media (max-width:520px){.yo-choices{grid-template-columns:1fr}}",
-    ".yo-choice{display:grid;gap:4px;text-align:left;padding:18px;border:2px solid var(--line);border-radius:16px;background:#fff;font:inherit;color:var(--ink);cursor:pointer}",
-    ".yo-choice strong{font-size:17px}.yo-choice span{font-size:12.5px;color:var(--muted)}",
-    ".yo-choice:hover{border-color:rgba(49,87,255,.45)}",
-    ".yo-choice.is-on{border-color:var(--accent);background:rgba(49,87,255,.06);box-shadow:0 0 0 3px rgba(49,87,255,.12)}",
-    ".yo-thumb{width:56px;height:56px;flex:none;display:grid;place-items:center;overflow:hidden;border-radius:50%;background:var(--soft);border:1px solid var(--line);font-size:10.5px;color:var(--muted)}",
-    ".yo-thumb img{width:100%;height:100%;object-fit:cover}",
-    ".yo-tags{display:flex;flex-wrap:wrap;gap:6px}",
-    ".yo-tag{padding:7px 12px;border:1px solid var(--line);border-radius:999px;background:#fff;font:inherit;font-size:13px;font-weight:700;color:var(--ink);cursor:pointer}",
-    ".yo-tag:hover{border-color:var(--accent)}.yo-tag.is-on{background:var(--accent);border-color:var(--accent);color:#fff}",
-    ".yo-eyebrow{font-size:12px;font-weight:800;letter-spacing:.14em;color:var(--accent);margin:0}",
-    ".yo-code{margin:4px 0;padding:14px;border-radius:12px;background:var(--soft);font:700 18px/1.3 ui-monospace,Consolas,monospace;text-align:center;user-select:all}",
-    ".yo-toast{position:fixed;left:50%;bottom:84px;transform:translate(-50%,10px);z-index:98;max-width:min(560px,calc(100% - 32px));padding:12px 18px;border-radius:14px;background:#fff;border:1px solid var(--line);box-shadow:var(--shadow);font-size:14px;font-weight:600;opacity:0;pointer-events:none;transition:all .25s}",
-    ".yo-toast.is-on{opacity:1;transform:translate(-50%,0)}",
-    ".yo-toast.is-bad{border-color:rgba(212,60,100,.4);color:#b02a50}"
-  ].join("\n") }));
+  /* ---------- styles (shared with the admin editor: assets/css/editor.css) ---------- */
+  if (!document.querySelector("link[data-yo-editor]")) {
+    document.head.appendChild($("link", { rel: "stylesheet", href: "assets/css/editor.css?v=" + Math.floor(Date.now() / 60000), "data-yo-editor": "1" }));
+  }
 
   /* ---------- start ---------- */
   // Left open without use: when the login's time runs out, sign out here too (keep the page if there are unsaved edits).

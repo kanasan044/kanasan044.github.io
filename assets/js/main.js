@@ -37,7 +37,8 @@
       "hero.lead": "YORIMICHI は、日本と韓国の人がふらっと立ち寄って話せる交流ラウンジです。広場でおしゃべりしたり、静かな個室でくつろいだり、先生と一緒に日本語・韓国語を学ぶこともできます。",
       "hero.tz": "日本と韓国は同じ時間帯です（UTC+9）",
       "hero.next": "次の予定", "hero.none": "予定は準備中です",
-      "hero.voice": "部屋の声は外に聞こえません",
+      "hero.voice": "部屋の声は外に聞こえません", "hero.clock": "日本・韓国の\nいまの時刻",
+      "badge.live": "開催中", "badge.today": "今日", "badge.tomorrow": "明日",
       "stats.areas": "エリア", "stats.rooms": "プライベート個室", "stats.classes": "語学教室", "stats.langs": "言語対応（日本語・韓国語）",
       "about.title": "ことばも文化も、気軽に。",
       "about.lead": "うまく話せなくても大丈夫。ワールドの案内はすべて日本語と韓国語で書かれているので、はじめての人でも迷わず楽しめます。",
@@ -74,6 +75,7 @@
       "guide.t3.title": "教室と授業", "guide.t3.body": "教室の戸をクリックすると出入りできます。授業中は先生が鍵を掛けるので、外からは入れません。",
       "guide.t4.title": "声のエリア", "guide.t4.body": "個室や教室の中の声は外に聞こえず、外の声も中には届きません。",
       "faq.title": "よくある質問",
+      "faq.contact.lead": "ここにない質問や、ご意見・不具合の報告はフォームから送ってください。", "faq.contact.btn": "その他のお問い合わせはこちら",
       "footer.tag": "日本と韓国が出会う、VRChat の交流ラウンジ。", "footer.pages": "ページ", "footer.links": "リンク", "footer.staff": "スタッフ専用",
       "login.btn": "スタッフログイン", "login.in": "ログイン中", "login.checking": "確認中…",
       "login.confirm": "このボタンは YORIMICHI の先生・運営スタッフ用です。\nDiscord でログインしますか？",
@@ -106,7 +108,8 @@
       "hero.lead": "YORIMICHI는 일본과 한국 사람들이 가볍게 들러 이야기를 나눌 수 있는 교류 라운지예요. 광장에서 수다를 떨거나 조용한 개인실에서 쉬고, 선생님과 함께 일본어·한국어를 배울 수도 있어요.",
       "hero.tz": "일본과 한국은 시간대가 같아요 (UTC+9)",
       "hero.next": "다음 일정", "hero.none": "일정을 준비하고 있어요",
-      "hero.voice": "방 안의 목소리는 밖에서 들리지 않아요",
+      "hero.voice": "방 안의 목소리는 밖에서 들리지 않아요", "hero.clock": "한국·일본\n지금 시각",
+      "badge.live": "진행 중", "badge.today": "오늘", "badge.tomorrow": "내일",
       "stats.areas": "구역", "stats.rooms": "프라이빗 개인실", "stats.classes": "어학 교실", "stats.langs": "언어 지원 (일본어·한국어)",
       "about.title": "언어도 문화도, 부담 없이.",
       "about.lead": "말이 서툴러도 괜찮아요. 월드 안내는 모두 일본어와 한국어로 되어 있어서 처음 오신 분도 헤매지 않고 즐길 수 있어요.",
@@ -143,6 +146,7 @@
       "guide.t3.title": "교실과 수업", "guide.t3.body": "교실 문을 클릭하면 드나들 수 있어요. 수업 중에는 선생님이 문을 잠그기 때문에 밖에서는 들어갈 수 없어요.",
       "guide.t4.title": "목소리 구역", "guide.t4.body": "개인실과 교실 안의 목소리는 밖으로 들리지 않고, 밖의 소리도 안으로 들어오지 않아요.",
       "faq.title": "자주 묻는 질문",
+      "faq.contact.lead": "여기에 없는 질문이나 의견, 오류 제보는 폼으로 보내 주세요.", "faq.contact.btn": "기타 문의는 여기로",
       "footer.tag": "일본과 한국이 만나는 VRChat 교류 라운지.", "footer.pages": "페이지", "footer.links": "링크", "footer.staff": "스태프 전용",
       "login.btn": "스태프 로그인", "login.in": "로그인 중", "login.checking": "확인 중…",
       "login.confirm": "이 버튼은 YORIMICHI 선생님·운영 스태프 전용입니다.\nDiscord로 로그인할까요?",
@@ -224,7 +228,7 @@
       // Staff login (teachers / staff / admin, Discord). Shows "● name" while signed in; tap it to log out.
       '<button type="button" class="btn btn--dark btn--sm login-btn" id="staff-login">' + LOCK + '<span class="login-btn__text"></span></button>' +
       '<button class="menu-btn" type="button" aria-expanded="false" aria-controls="nav"><span></span><span></span></button>' +
-      "</div></div></header>";
+      '</div><span class="progress" aria-hidden="true"></span></div></header>';
 
     var pages = PAGES.map(function (p) { return '<a href="' + p[1] + '" data-i18n="nav.' + p[0] + '"></a>'; }).join("");
     el("site-footer").outerHTML =
@@ -236,6 +240,7 @@
       '<a data-link="world_url" href="#">VRChat World</a><a data-link="group_url" href="#">VRChat Group</a>' +
       '<a data-link="discord_url" href="#">Discord</a><a data-link="x_url" href="#">X</a></div>' +
       "</div></div>" +
+      '<div class="container"><p class="footer__wordmark" aria-hidden="true">YORIMICHI</p></div>' +
       '<div class="container footer__bottom"><small>© <span id="year">2026</span> YORIMICHI</small>' +
       '<a class="footer__staff" data-link="staff_page_url" href="#"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 11V8a5 5 0 0 1 10 0v3M5 11h14v10H5z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg><span data-i18n="footer.staff"></span></a>' +
       '<small class="muted" id="updated"></small></div></footer>';
@@ -292,6 +297,8 @@
       if (url) { a.href = url; a.target = "_blank"; a.rel = "noopener"; a.hidden = false; }
       else { a.removeAttribute("target"); a.hidden = !isBtn; }
     });
+    // The 「その他のお問い合わせ」 box under the FAQ only appears once a form URL is set.
+    if (el("faq-contact")) el("faq-contact").hidden = !safeUrl(S.contact_form_url);
     renderLogin();
     var linkCol = el("footer-links");
     if (linkCol) linkCol.hidden = !linkCol.querySelector("a:not([hidden])");
@@ -320,6 +327,14 @@
     }).filter(function (x) { return x && x.end.ts + 30 * 60000 > now; })
       .sort(function (a, b) { return a.start.ts - b.start.ts; });
   }
+  // 開催中 / 今日 / 明日 for an upcoming event (days counted in Japan / Korea time).
+  function badgeOf(x) {
+    var now = Date.now();
+    if (x.start.ts <= now && now < x.end.ts) return "live";
+    var day = function (ts) { return Math.floor((ts + 9 * 3600000) / 86400000); };
+    var diff = day(x.start.ts) - day(now);
+    return diff === 0 ? "today" : diff === 1 ? "tomorrow" : "";
+  }
   function kindOf(e) { return /授業|수업|lesson|class/i.test(String(e.type || "")) ? "lesson" : "event"; }
   function timeRange(e) { return e.start ? e.start + (e.end ? " – " + e.end : "") : ""; }
 
@@ -331,11 +346,12 @@
       var shown = list.filter(function (x) { return filter === "all" || kindOf(x.e) === filter; });
       if (limit) shown = shown.slice(0, limit);
       box.innerHTML = shown.map(function (x) {
-        var e = x.e, k = kindOf(e), desc = pick(e, "desc");
-        return '<li class="event event--' + k + '">' +
+        var e = x.e, k = kindOf(e), desc = pick(e, "desc"), when = badgeOf(x);
+        return '<li class="event spot event--' + k + (when === "live" ? " is-live" : "") + '">' +
           '<div class="event__date"><div><div class="event__month">' + x.start.y + "." + String(x.start.mo).padStart(2, "0") + "</div>" +
           '<div class="event__day">' + x.start.d + '</div><div class="event__dow">' + dow[x.start.dow] + "</div></div></div>" +
           '<div><span class="event__kind">' + esc(t("kind." + k)) + (e.place ? " · " + esc(e.place) : "") + "</span>" +
+          (when ? '<span class="badge badge--' + (when === "live" ? "live" : "soon") + '">' + esc(t("badge." + when)) + "</span>" : "") +
           "<h3>" + esc(pick(e, "title")) + "</h3>" + (desc ? "<p>" + esc(desc) + "</p>" : "") + "</div>" +
           '<div class="event__side"><div class="event__time">' + esc(timeRange(e)) + "</div>" +
           (e.host ? '<div class="event__host">' + esc(e.host) + "</div>" : "") + "</div></li>";
@@ -394,7 +410,7 @@
     var img = safeUrl(p.image), name = String(p.name || "").trim(), bio = String(p.bio || "").trim() || pick(p, "bio");
     var tags = (Array.isArray(p.tags) ? p.tags : []).map(tagLabel).filter(Boolean);
     var initial = name ? Array.from(name)[0] : "?";
-    return '<article class="person"><div class="avatar">' +
+    return '<article class="person spot"><div class="avatar">' +
       (img ? '<img src="' + esc(img) + '" alt="" loading="lazy">' : esc(initial)) + "</div><div>" +
       '<div class="person__name">' + esc(name) + "</div>" + (role ? '<div class="person__role' + (founder ? " is-founder" : "") + '">' + esc(role) + "</div>" : "") +
       (tags.length ? '<div class="person__tags">' + tags.map(function (x) { return "<span>" + esc(x) + "</span>"; }).join("") + "</div>" : "") +
@@ -449,6 +465,38 @@
     renderAll();
   }
 
+  /* ---------- small effects: greeting ribbon, live clock, counters, card spotlight ---------- */
+  var GREETINGS = ["こんにちは", "안녕하세요", "はじめまして", "반가워요", "ありがとう", "고마워요", "よろしくね", "잘 부탁해요", "また明日", "내일 봐요", "寄り道しよう", "놀러 와요"];
+  var calm = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  function startEffects() {
+    var mq = el("marquee");
+    if (mq) {
+      var row = "<span>" + GREETINGS.map(function (g) { return esc(g) + " <i>✦</i>"; }).join(" ") + "</span>";
+      mq.innerHTML = row + row;   // two copies: the track slides by half its width and loops seamlessly
+    }
+    var clock = el("now-clock");
+    if (clock) {
+      var tick = function () { clock.textContent = new Date(Date.now() + 9 * 3600000).toISOString().slice(11, 16); };
+      tick(); setInterval(tick, 15000);
+    }
+    document.querySelectorAll(".feature, .step-card, .tip, .position, .flow li, .stats div").forEach(function (n) { n.classList.add("spot"); });
+    document.addEventListener("pointermove", function (e) {
+      var card = e.target.closest && e.target.closest(".spot"); if (!card) return;
+      var r = card.getBoundingClientRect();
+      card.style.setProperty("--mx", (e.clientX - r.left) + "px");
+      card.style.setProperty("--my", (e.clientY - r.top) + "px");
+    }, { passive: true });
+  }
+  function countUp(n) {
+    var to = +n.getAttribute("data-count"); if (!to || calm) return;
+    var t0 = performance.now(), dur = 900;
+    (function step(now) {
+      var p = Math.min(1, (now - t0) / dur);
+      n.textContent = String(Math.round(to * (1 - Math.pow(1 - p, 3))));
+      if (p < 1) requestAnimationFrame(step);
+    })(t0);
+  }
+
   /* ---------- start ---------- */
   function start() {
   buildChrome();
@@ -489,13 +537,22 @@
     var open = menuBtn.getAttribute("aria-expanded") !== "true";
     menuBtn.setAttribute("aria-expanded", String(open)); nav.classList.toggle("is-open", open);
   });
-  var header = document.querySelector(".header");
-  function onScroll() { header.classList.toggle("is-scrolled", window.scrollY > 8); }
+  var header = document.querySelector(".header"), bar = header.querySelector(".progress");
+  function onScroll() {
+    header.classList.toggle("is-scrolled", window.scrollY > 8);
+    var max = document.documentElement.scrollHeight - window.innerHeight;
+    bar.style.transform = "scaleX(" + (max > 0 ? Math.min(1, window.scrollY / max) : 0) + ")";
+  }
   window.addEventListener("scroll", onScroll, { passive: true }); onScroll();
+  startEffects();
 
   if ("IntersectionObserver" in window) {
     var io = new IntersectionObserver(function (entries) {
-      entries.forEach(function (en) { if (en.isIntersecting) { en.target.classList.add("is-in"); io.unobserve(en.target); } });
+      entries.forEach(function (en) {
+        if (!en.isIntersecting) return;
+        en.target.classList.add("is-in"); io.unobserve(en.target);
+        var c = en.target.querySelector("[data-count]"); if (c) countUp(c);
+      });
     }, { rootMargin: "0px 0px -8% 0px", threshold: .08 });
     document.querySelectorAll(".reveal").forEach(function (n) { io.observe(n); });
   } else {
