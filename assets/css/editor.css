@@ -1,0 +1,184 @@
+/* YORIMICHI editing tools (founders, staff, teachers). Loaded by staff.js only for people who are signed in. */
+.yo-ui { font-family: var(--font-ja); color: var(--ink); line-height: 1.5; }
+html[lang="ko"] .yo-ui { font-family: var(--font-ko); }
+
+/* ---------- toolbar (bottom centre) ---------- */
+.yo-bar {
+  position: fixed; left: 50%; bottom: 18px; transform: translateX(-50%); z-index: 97;
+  display: flex; align-items: center; gap: 4px; padding: 6px; max-width: calc(100% - 20px); overflow-x: auto; scrollbar-width: none;
+  background: rgba(11, 12, 18, .9); backdrop-filter: blur(18px) saturate(160%); -webkit-backdrop-filter: blur(18px) saturate(160%);
+  border: 1px solid rgba(255, 255, 255, .08); border-radius: 999px; box-shadow: 0 24px 50px -16px rgba(0, 0, 0, .55); color: #fff;
+  animation: yoUp .45s cubic-bezier(.34, 1.56, .64, 1);
+}
+.yo-bar::-webkit-scrollbar { display: none; }
+@keyframes yoUp { from { transform: translate(-50%, 30px); opacity: 0; } to { transform: translateX(-50%); opacity: 1; } }
+.yo-bar__who { display: inline-flex; align-items: center; gap: 8px; padding: 0 12px 0 4px; font-size: 12.5px; font-weight: 700; white-space: nowrap; color: #fff; }
+.yo-bar__who i { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; font-style: normal; font-size: 13px; font-weight: 800; color: var(--ink); background: var(--lime, #d4ff3f); flex: none; }
+.yo-bar__who small { display: block; font-size: 10.5px; font-weight: 700; color: rgba(255, 255, 255, .55); }
+.yo-bar__sep { width: 1px; height: 22px; background: rgba(255, 255, 255, .14); margin: 0 4px; flex: none; }
+.yo-bar__btn { display: inline-flex; align-items: center; gap: 6px; border: 0; background: transparent; color: #fff; padding: 10px 15px; border-radius: 999px; font: inherit; font-size: 13.5px; font-weight: 700; white-space: nowrap; cursor: pointer; transition: background .2s, color .2s, transform .2s; }
+.yo-bar__btn:hover { background: rgba(255, 255, 255, .1); }
+.yo-bar__btn:active { transform: scale(.96); }
+.yo-bar__btn.is-on { background: #fff; color: var(--ink); }
+.yo-bar__save { background: var(--lime, #d4ff3f); color: var(--ink); }
+.yo-bar__save:hover { background: #e4ff7a; }
+.yo-bar__save:disabled { background: rgba(255, 255, 255, .08); color: rgba(255, 255, 255, .5); cursor: default; }
+.yo-bar__save .yo-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--sakura, #ff5d8f); animation: yoPing 1.6s ease-out infinite; }
+@keyframes yoPing { 0% { box-shadow: 0 0 0 0 rgba(255, 93, 143, .6); } 80%, 100% { box-shadow: 0 0 0 7px rgba(255, 93, 143, 0); } }
+.yo-bar__ghost { color: rgba(255, 255, 255, .6); }
+.yo-bar__lang { font-size: 12px; padding: 7px 12px; background: rgba(212, 255, 63, .14); color: var(--lime, #d4ff3f); }
+.yo-bar__lang:hover { background: rgba(212, 255, 63, .24); }
+
+/* ---------- editing the page itself ---------- */
+.yo-editing .yo-editable { outline: 1.5px dashed rgba(167, 107, 255, .65); outline-offset: 4px; border-radius: 6px; cursor: text; transition: outline-color .2s, background .2s; }
+.yo-editing .yo-editable:hover { background: rgba(167, 107, 255, .07); }
+.yo-editing .yo-editable:focus { outline: 2px solid var(--lilac, #a76bff); background: rgba(167, 107, 255, .08); }
+.yo-editing .tile .yo-editable, .yo-editing .join .yo-editable, .yo-editing .footer .yo-editable { outline-color: rgba(255, 255, 255, .7); }
+.yo-editing .reveal { opacity: 1; transform: none; }
+.yo-editing .marquee__track, .yo-editing .float-card { animation-play-state: paused; }
+.yo-imghost { position: relative; }
+.yo-imgbar { position: absolute; top: 14px; left: 14px; z-index: 5; display: flex; gap: 6px; }
+.yo-chip { border: 0; padding: 9px 15px; border-radius: 999px; background: #fff; color: var(--ink); font: inherit; font-size: 13px; font-weight: 800; box-shadow: 0 8px 20px -8px rgba(0, 0, 0, .45); cursor: pointer; }
+.yo-chip:hover { background: var(--lime, #d4ff3f); }
+.yo-chip--ghost { background: rgba(255, 255, 255, .78); }
+
+/* ---------- side panel ---------- */
+.yo-panel {
+  position: fixed; top: 12px; right: 12px; bottom: 12px; z-index: 95; width: min(460px, calc(100% - 24px));
+  display: flex; flex-direction: column; overflow: hidden;
+  background: var(--soft); border: 1px solid rgba(255, 255, 255, .7); border-radius: 28px;
+  box-shadow: 0 40px 80px -30px rgba(16, 18, 40, .5), 0 0 0 1px rgba(16, 18, 40, .04);
+  animation: yoIn .35s cubic-bezier(.2, .7, .2, 1);
+}
+@keyframes yoIn { from { transform: translateX(40px); opacity: 0; } to { transform: none; opacity: 1; } }
+.yo-panel__head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 18px 18px 12px 22px; background: #fff; }
+.yo-panel__head h2 { font-size: 19px; font-weight: 900; letter-spacing: -.02em; margin: 0; }
+.yo-panel__head p { margin: 2px 0 0; font-size: 12px; color: var(--muted); }
+.yo-x { display: grid; place-items: center; width: 38px; height: 38px; flex: none; border: 0; border-radius: 50%; background: var(--soft); font-size: 18px; line-height: 1; color: var(--ink); cursor: pointer; transition: background .2s, transform .3s; }
+.yo-x:hover { background: var(--ink); color: #fff; transform: rotate(90deg); }
+.yo-tabs { display: flex; gap: 4px; padding: 0 14px 12px; background: #fff; border-bottom: 1px solid var(--line); overflow-x: auto; scrollbar-width: none; }
+.yo-tabs::-webkit-scrollbar { display: none; }
+.yo-tabs button { flex: none; display: inline-flex; align-items: center; gap: 6px; border: 0; background: transparent; padding: 8px 14px; border-radius: 999px; font: inherit; font-size: 13.5px; font-weight: 800; color: var(--muted); cursor: pointer; transition: background .2s, color .2s; }
+.yo-tabs button:hover { background: var(--soft); color: var(--ink); }
+.yo-tabs button[aria-selected="true"] { background: var(--ink); color: #fff; }
+.yo-tabs .yo-count { min-width: 18px; padding: 0 5px; border-radius: 999px; background: var(--sakura, #ff5d8f); color: #fff; font-size: 11px; line-height: 18px; text-align: center; }
+.yo-panel__body { flex: 1; overflow-y: auto; padding: 16px 16px 110px; overscroll-behavior: contain; }
+
+/* ---------- building blocks ---------- */
+.yo-list { display: grid; gap: 10px; }
+.yo-card { display: grid; gap: 12px; padding: 18px; background: #fff; border: 1px solid var(--line); border-radius: 20px; }
+.yo-card h3 { font-size: 15px; font-weight: 900; margin: 0; }
+.yo-field { display: grid; gap: 6px; font-size: 12.5px; font-weight: 800; color: var(--ink-2, #2b2f3b); }
+.yo-field > span:first-child { letter-spacing: .01em; }
+.yo-input { width: 100%; padding: 11px 14px; border: 1.5px solid var(--line); border-radius: 14px; font: inherit; font-size: 15px; font-weight: 500; color: var(--ink); background: var(--soft); resize: vertical; transition: border-color .2s, background .2s, box-shadow .2s; }
+.yo-input:hover { border-color: #d6d8e2; }
+.yo-input:focus { outline: 0; border-color: var(--ink); background: #fff; box-shadow: 0 0 0 4px rgba(212, 255, 63, .55); }
+textarea.yo-input { min-height: 92px; line-height: 1.6; }
+.yo-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.yo-row--end { justify-content: flex-end; }
+.yo-btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; border: 1.5px solid var(--line); background: #fff; color: var(--ink); padding: 10px 18px; border-radius: 999px; font: inherit; font-size: 14px; font-weight: 800; cursor: pointer; transition: border-color .2s, background .2s, transform .2s; }
+.yo-btn:hover { border-color: var(--ink); }
+.yo-btn:active { transform: scale(.97); }
+.yo-btn:disabled { opacity: .45; cursor: default; }
+.yo-btn--primary { background: var(--ink); border-color: var(--ink); color: #fff; }
+.yo-btn--primary:hover { background: #000; }
+.yo-btn--add { width: 100%; padding: 14px; border: 2px dashed #cfd2de; background: transparent; color: var(--ink); border-radius: 20px; font-size: 14.5px; }
+.yo-btn--add:hover { border-color: var(--ink); background: #fff; }
+.yo-btn--block { width: 100%; }
+.yo-btn--sm { padding: 7px 13px; font-size: 13px; }
+.yo-btn--icon { width: 36px; height: 36px; padding: 0; }
+.yo-btn--danger { color: #d43c64; border-color: rgba(212, 60, 100, .28); }
+.yo-btn--danger:hover { background: #d43c64; border-color: #d43c64; color: #fff; }
+.yo-muted { font-size: 13px; font-weight: 500; color: var(--muted); margin: 0; }
+.yo-empty { text-align: center; color: var(--muted); font-size: 14px; padding: 22px; border: 1.5px dashed #d6d8e2; border-radius: 18px; }
+.yo-section { font-size: 13px; font-weight: 900; letter-spacing: .06em; color: var(--muted); margin: 14px 4px 0; }
+.yo-note { display: grid; gap: 6px; padding: 16px 18px; border-radius: 20px; background: #fff; border: 1px solid var(--line); font-size: 13px; color: var(--ink); }
+.yo-note strong { font-size: 13.5px; }
+details.yo-note summary { cursor: pointer; font-weight: 900; font-size: 13.5px; list-style: none; }
+details.yo-note summary::-webkit-details-marker { display: none; }
+details.yo-note summary::before { content: "？"; display: inline-grid; place-items: center; width: 20px; height: 20px; margin-right: 8px; border-radius: 50%; background: var(--lime, #d4ff3f); font-size: 12px; }
+details.yo-note[open] summary { margin-bottom: 6px; }
+/* keep the toolbar clear of the open panel on wide screens */
+@media (min-width: 980px) {
+  body.yo-has-panel .yo-bar, body.yo-has-panel .yo-toast { left: calc((100% - 484px) / 2); max-width: calc(100% - 520px); }
+}
+.yo-note span { color: var(--muted); }
+.yo-hint { display: flex; gap: 10px; align-items: flex-start; padding: 12px 14px; border-radius: 16px; background: rgba(212, 255, 63, .35); font-size: 13px; font-weight: 600; color: var(--ink); }
+.yo-hint::before { content: "💡"; flex: none; }
+
+/* collapsible list items (お知らせ・質問・名簿) */
+.yo-item { padding: 0; gap: 0; overflow: hidden; transition: box-shadow .25s, border-color .25s; }
+.yo-item.is-open { border-color: var(--ink); box-shadow: 0 16px 30px -20px rgba(16, 18, 40, .45); }
+.yo-item__head { display: flex; align-items: center; gap: 12px; width: 100%; padding: 14px 16px; border: 0; background: transparent; font: inherit; text-align: left; color: var(--ink); cursor: pointer; }
+.yo-item__head:hover { background: var(--soft); }
+.yo-item__lead { flex: none; display: grid; place-items: center; width: 40px; height: 40px; border-radius: 12px; overflow: hidden; background: var(--soft); font-size: 11px; font-weight: 900; color: var(--muted); text-align: center; line-height: 1.15; }
+.yo-item__lead img { width: 100%; height: 100%; object-fit: cover; }
+.yo-item__text { flex: 1; min-width: 0; display: grid; }
+.yo-item__text strong { font-size: 14.5px; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.yo-item__text small { font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.yo-item__chev { flex: none; width: 22px; height: 22px; border-radius: 50%; background: var(--soft); position: relative; transition: transform .3s; }
+.yo-item__chev::before { content: ""; position: absolute; left: 7px; top: 6px; width: 6px; height: 6px; border-right: 2px solid var(--ink); border-bottom: 2px solid var(--ink); transform: rotate(45deg); }
+.yo-item.is-open .yo-item__chev { transform: rotate(180deg); background: var(--lime, #d4ff3f); }
+.yo-item__body { display: grid; gap: 12px; padding: 4px 16px 16px; }
+.yo-badge { flex: none; padding: 2px 9px; border-radius: 999px; font-size: 11px; font-weight: 800; background: var(--soft); color: var(--muted); }
+.yo-badge--founder { background: linear-gradient(90deg, #ff5d8f, #3d5afe); color: #fff; }
+.yo-badge--teacher { background: rgba(31, 191, 117, .14); color: #12945a; }
+.yo-badge--staff { background: rgba(61, 90, 254, .12); color: var(--accent); }
+.yo-badge--new { background: var(--lime, #d4ff3f); color: var(--ink); }
+
+/* pictures, tags, roles */
+.yo-thumb { width: 60px; height: 60px; flex: none; display: grid; place-items: center; overflow: hidden; border-radius: 20px; background: var(--soft); border: 1px solid var(--line); font-size: 10.5px; color: var(--muted); }
+.yo-thumb img { width: 100%; height: 100%; object-fit: cover; }
+.yo-code { margin: 4px 0; padding: 14px; border-radius: 14px; background: var(--soft); font: 700 19px/1.3 ui-monospace, Consolas, monospace; letter-spacing: .04em; text-align: center; user-select: all; }
+.yo-nowrap { white-space: nowrap; flex: none; }
+.yo-tags { display: flex; flex-wrap: wrap; gap: 6px; }
+.yo-tag { padding: 7px 13px; border: 1.5px solid var(--line); border-radius: 999px; background: #fff; font: inherit; font-size: 13px; font-weight: 800; color: var(--ink); cursor: pointer; transition: all .2s; }
+.yo-tag:hover { border-color: var(--ink); }
+.yo-tag.is-on { background: var(--ink); border-color: var(--ink); color: #fff; }
+.yo-role { font-size: 13.5px; padding: 9px 15px; }
+.yo-role:disabled { opacity: .4; cursor: not-allowed; }
+.yo-role--founder.is-on { background: linear-gradient(90deg, #ff5d8f, #3d5afe); border-color: transparent; }
+.yo-role--teacher.is-on { background: #12945a; border-color: #12945a; }
+.yo-card--app { border: 2px solid var(--ink); box-shadow: 0 0 0 4px rgba(212, 255, 63, .6); }
+.yo-card--app p { white-space: pre-wrap; }
+
+/* dialogs, toasts */
+.yo-modal { position: fixed; inset: 0; z-index: 100; display: grid; place-items: center; padding: 16px; background: rgba(11, 12, 18, .5); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); animation: yoFade .25s ease; }
+@keyframes yoFade { from { opacity: 0; } to { opacity: 1; } }
+/* Registration: under the toast (98) so its messages stay visible; nothing behind can be reached. */
+.yo-modal--locked { z-index: 96; background: rgba(11, 12, 18, .66); overscroll-behavior: contain; }
+.yo-modal__card { width: min(460px, 100%); display: grid; gap: 14px; padding: 30px; background: #fff; border-radius: 30px; box-shadow: 0 40px 80px -30px rgba(0, 0, 0, .5); animation: yoPop .4s cubic-bezier(.34, 1.56, .64, 1); }
+@keyframes yoPop { from { transform: scale(.94) translateY(10px); opacity: 0; } to { transform: none; opacity: 1; } }
+.yo-modal__card h2 { font-size: 22px; font-weight: 900; letter-spacing: -.02em; margin: 0; }
+.yo-modal__card--wide { width: min(580px, 100%); max-height: calc(100vh - 32px); overflow-y: auto; }
+.yo-eyebrow { display: inline-flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 900; letter-spacing: .14em; color: var(--ink); margin: 0; }
+.yo-eyebrow::before { content: ""; width: 14px; height: 14px; border-radius: 5px; background: linear-gradient(100deg, #ff5d8f, #a76bff, #3d5afe); transform: rotate(12deg); }
+.yo-err { min-height: 1.2em; font-size: 13px; color: #d43c64; margin: 0; }
+.yo-link { font-size: 13px; font-weight: 800; color: var(--accent); }
+.yo-choices { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+@media (max-width: 520px) { .yo-choices { grid-template-columns: 1fr; } }
+.yo-choice { display: grid; gap: 4px; text-align: left; padding: 18px; border: 2px solid var(--line); border-radius: 20px; background: #fff; font: inherit; color: var(--ink); cursor: pointer; transition: all .2s; }
+.yo-choice strong { font-size: 17px; }
+.yo-choice span { font-size: 12.5px; color: var(--muted); }
+.yo-choice:hover { border-color: var(--ink); }
+.yo-choice.is-on { border-color: var(--ink); background: rgba(212, 255, 63, .3); box-shadow: 0 0 0 4px rgba(212, 255, 63, .55); }
+.yo-toast {
+  position: fixed; left: 50%; bottom: 88px; transform: translate(-50%, 12px); z-index: 98; width: max-content; max-width: min(560px, calc(100vw - 32px));
+  display: flex; align-items: center; gap: 10px; padding: 13px 20px; border-radius: 18px; background: var(--ink); color: #fff;
+  box-shadow: 0 20px 40px -16px rgba(0, 0, 0, .5); font-size: 14px; font-weight: 700; opacity: 0; pointer-events: none; transition: all .3s cubic-bezier(.34, 1.56, .64, 1);
+}
+.yo-toast::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--lime, #d4ff3f); flex: none; }
+.yo-toast.is-on { opacity: 1; transform: translate(-50%, 0); }
+.yo-toast.is-bad { background: #fff; color: #b02a50; border: 1.5px solid rgba(212, 60, 100, .4); }
+.yo-toast.is-bad::before { background: #d43c64; }
+
+@media (max-width: 640px) {
+  .yo-panel { top: 8px; right: 8px; bottom: 8px; width: calc(100% - 16px); border-radius: 24px; }
+  .yo-bar { bottom: 10px; }
+  .yo-bar__who > span { display: none; }
+  .yo-bar__who { padding-right: 2px; }
+  .yo-bar__btn { padding: 9px 12px; font-size: 13px; }
+  .yo-bar .yo-l:not(.yo-l--keep) { display: none; }
+  .yo-bar .yo-i { font-size: 16px; }
+  .yo-bar__logout { display: none; }   /* phones: log out from the header button */
+}
