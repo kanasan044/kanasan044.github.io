@@ -57,7 +57,6 @@ button { font: inherit; color: inherit; cursor: pointer; }
 h1, h2, h3 { margin: 0; line-height: 1.25; letter-spacing: -.01em; font-weight: 800; text-wrap: balance; }
 html[lang="ja"] :is(h1, h2, h3, .hero__lead, .section__lead, .page-hero__lead) { word-break: auto-phrase; }
 p { margin: 0; }
-::selection { background: var(--lime); color: var(--ink); }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 8px; }
 
 .container { width: min(1200px, 100% - 40px); margin-inline: auto; }
