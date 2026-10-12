@@ -56,6 +56,8 @@ a { color: inherit; text-decoration: none; }
 button { font: inherit; color: inherit; cursor: pointer; }
 h1, h2, h3 { margin: 0; line-height: 1.25; letter-spacing: -.01em; font-weight: 800; text-wrap: balance; }
 html[lang="ja"] :is(h1, h2, h3, .hero__lead, .section__lead, .page-hero__lead) { word-break: auto-phrase; }
+/* 見出しの「、」「。」などの余白を詰める（和文の詰め組み） */
+html[lang="ja"] :is(h1, h2, h3) { font-feature-settings: "palt" 1; }
 p { margin: 0; }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 8px; }
 
@@ -163,6 +165,7 @@ p { margin: 0; }
 .hero__title .grad { white-space: nowrap; background-size: 200% 100%; animation: sheen 8s ease-in-out infinite alternate; }
 @keyframes sheen { from { background-position: 0% 50%; } to { background-position: 100% 50%; } }
 html[lang="ko"] .hero__title { letter-spacing: -.05em; }
+html[lang="ja"] .hero__title { letter-spacing: -.02em; }
 .hero__lead { margin-top: 26px; font-size: clamp(16px, 1.6vw, 19px); color: var(--muted); max-width: 36em; }
 .hero__cta { display: flex; flex-wrap: wrap; justify-content: center; gap: 12px; margin-top: 34px; }
 .page-hero .hero__cta { justify-content: flex-start; }
