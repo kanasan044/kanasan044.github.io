@@ -200,14 +200,6 @@ a.float-card:hover { box-shadow: 0 30px 56px -18px rgba(61, 90, 254, .5); }
 .live-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--lime); box-shadow: 0 0 12px var(--lime); flex: none; }
 @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-9px); } }
 
-/* Greeting ribbon */
-.marquee { position: relative; margin: 96px 0 0; padding: 18px 0; background: var(--ink); color: #fff; transform: rotate(-2deg); overflow: hidden; width: 104%; margin-left: -2%; box-shadow: 0 30px 50px -30px rgba(11, 12, 18, .6); }
-.marquee__track { display: flex; width: max-content; animation: marquee 38s linear infinite; }
-.marquee__track span { display: inline-flex; align-items: center; gap: 28px; padding-right: 28px; font-family: var(--font-display), "Noto Sans JP", "Noto Sans KR", sans-serif; font-size: clamp(20px, 2.6vw, 32px); font-weight: 800; letter-spacing: -.01em; white-space: nowrap; }
-.marquee__track i { font-style: normal; color: var(--lime); font-size: .7em; }
-.marquee:hover .marquee__track { animation-play-state: paused; }
-@keyframes marquee { to { transform: translateX(-50%); } }
-
 .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin: 96px 0 0; padding: 0; }
 .stats div { padding: 26px 28px; border-radius: var(--radius); background: #fff; border: 1px solid var(--line); box-shadow: var(--shadow-sm); transition: transform .3s var(--spring); }
 .stats div:hover { transform: translateY(-4px) rotate(-1deg); }
@@ -492,7 +484,6 @@ a.float-card:hover { box-shadow: 0 30px 56px -18px rgba(61, 90, 254, .5); }
   .shot--hero { aspect-ratio: 4 / 3; border-radius: 26px; }
   .float-card--clock { right: 12px; bottom: -22px; padding: 10px 16px; }
   .float-card--clock b { font-size: 22px; }
-  .marquee { margin-top: 76px; padding: 14px 0; }
   .stats { margin-top: 72px; gap: 10px; }
   .stats div { padding: 20px; }
   .section { padding: 84px 0; }

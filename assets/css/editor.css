@@ -35,7 +35,7 @@ html[lang="ko"] .yo-ui { font-family: var(--font-ko); }
 .yo-editing .yo-editable:focus { outline: 2px solid var(--lilac, #a76bff); background: rgba(167, 107, 255, .08); }
 .yo-editing .tile .yo-editable, .yo-editing .join .yo-editable, .yo-editing .footer .yo-editable { outline-color: rgba(255, 255, 255, .7); }
 .yo-editing .reveal { opacity: 1; transform: none; }
-.yo-editing .marquee__track, .yo-editing .float-card { animation-play-state: paused; }
+.yo-editing .float-card { animation-play-state: paused; }
 .yo-imghost { position: relative; }
 .yo-imgbar { position: absolute; top: 14px; left: 14px; z-index: 5; display: flex; gap: 6px; }
 .yo-chip { border: 0; padding: 9px 15px; border-radius: 999px; background: #fff; color: var(--ink); font: inherit; font-size: 13px; font-weight: 800; box-shadow: 0 8px 20px -8px rgba(0, 0, 0, .45); cursor: pointer; }

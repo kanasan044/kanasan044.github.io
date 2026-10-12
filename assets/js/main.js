@@ -465,15 +465,9 @@
     renderAll();
   }
 
-  /* ---------- small effects: greeting ribbon, live clock, counters, card spotlight ---------- */
-  var GREETINGS = ["こんにちは", "안녕하세요", "はじめまして", "반가워요", "ありがとう", "고마워요", "よろしくね", "잘 부탁해요", "また明日", "내일 봐요", "寄り道しよう", "놀러 와요"];
+  /* ---------- small effects: live clock, counters, card spotlight ---------- */
   var calm = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   function startEffects() {
-    var mq = el("marquee");
-    if (mq) {
-      var row = "<span>" + GREETINGS.map(function (g) { return esc(g) + " <i>✦</i>"; }).join(" ") + "</span>";
-      mq.innerHTML = row + row;   // two copies: the track slides by half its width and loops seamlessly
-    }
     var clock = el("now-clock");
     if (clock) {
       var tick = function () { clock.textContent = new Date(Date.now() + 9 * 3600000).toISOString().slice(11, 16); };
